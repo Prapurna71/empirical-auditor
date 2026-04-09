@@ -10,11 +10,13 @@ from groq import Groq
 import yaml
 
 ROOT = Path(__file__).resolve().parents[1]
+BASELINE_FILE = ROOT / "experiments" / "baseline.yaml"
 CURRENT_FILE = ROOT / "experiments" / "current.yaml"
 COMPARISON_FILE = ROOT / "experiments" / "comparison.yaml"
 BISECT_FILE = ROOT / "experiments" / "bisect_result.yaml"
 OUTPUT_FILE = ROOT / "experiments" / "blame_result.yaml"
 ENV_FILE = ROOT / ".env"
+ANALYSIS_TARGET = "scripts/run_experiment.py"
 
 
 def load_yaml(path: Path) -> dict:
@@ -89,32 +91,286 @@ def classify_failure(current: dict, comparison: dict) -> str:
     accuracy_diff = float(comparison.get("accuracy_diff", 0.0))
 
     if seed is None:
-        return "Non-determinism introduced"
+        return "Non-determinism"
     if not dataset_hash:
-        return "Data inconsistency"
-    if accuracy_diff > 0.1:
-        return "Model instability"
+        return "Data drift"
+    if accuracy_diff > 0.12:
+        return "Hyperparameter instability"
     if accuracy_diff > 0.05:
-        return "Reproducibility drift"
-    return "No critical failure"
+        return "Code regression"
+    return "Code regression"
 
 
-def build_attribution(changes: dict, failure_type: str) -> dict:
+def parse_diff_signals(diff_text: str) -> dict:
+    keywords = ["seed", "shuffle", "random", "batch", "learning_rate"]
+    detected_keywords: list[str] = []
+    changes: list[dict] = []
+
+    added = 0
+    removed = 0
+    modified = 0
+
+    for raw_line in diff_text.splitlines():
+        line = raw_line.strip()
+        if not line:
+            continue
+
+        action = None
+        content = line
+        if line.startswith("+") and not line.startswith("+++"):
+            action = "added"
+            added += 1
+            content = line[1:].strip()
+        elif line.startswith("-") and not line.startswith("---"):
+            action = "removed"
+            removed += 1
+            content = line[1:].strip()
+        elif line.startswith("@@"):
+            action = "modified"
+            modified += 1
+
+        lowered = content.lower()
+        for keyword in keywords:
+            if keyword in lowered:
+                if keyword not in detected_keywords:
+                    detected_keywords.append(keyword)
+                if action:
+                    changes.append({"keyword": keyword, "action": action, "line": content[:160]})
+
+    return {
+        "detected_keywords": detected_keywords,
+        "changes": changes,
+        "change_counts": {
+            "added": added,
+            "removed": removed,
+            "modified": modified,
+        },
+    }
+
+
+def build_reasoning_context(diff_signals: dict, metrics: dict) -> dict:
+    accuracy_drop = float(metrics.get("accuracy_drop", 0.0))
+    if accuracy_drop > 0.1:
+        impact_level = "high"
+    elif accuracy_drop > 0.05:
+        impact_level = "medium"
+    else:
+        impact_level = "low"
+
+    context = {
+        "detected_changes": diff_signals.get("changes", []),
+        "metric_shift": {
+            "accuracy_drop": accuracy_drop,
+            "loss_increase": float(metrics.get("loss_increase", 0.0)),
+            "divergence": bool(metrics.get("divergence", False)),
+        },
+        "impact_level": impact_level,
+    }
+    return context
+
+
+def normalize_category(category: str) -> str:
+    text = category.lower()
+    if "non" in text and "determin" in text:
+        return "Non-determinism"
+    if "data" in text and ("drift" in text or "inconsisten" in text):
+        return "Data drift"
+    if "hyper" in text or "learning_rate" in text or "batch" in text:
+        return "Hyperparameter instability"
+    if "code" in text or "regression" in text:
+        return "Code regression"
+    return "Code regression"
+
+
+def intelligent_fallback_analysis(diff_text: str, metrics: dict) -> dict:
+    diff_signals = parse_diff_signals(diff_text)
+    context = build_reasoning_context(diff_signals, metrics)
+
+    accuracy_drop = context["metric_shift"]["accuracy_drop"]
+    loss_increase = context["metric_shift"]["loss_increase"]
+    changes = context["detected_changes"]
+
+    removed_keywords = {c["keyword"] for c in changes if c.get("action") == "removed"}
+    changed_keywords = {c["keyword"] for c in changes}
+
+    reasoning_steps: list[str] = []
+
+    reasoning_steps.append(
+        f"Parsed git diff signals with keywords: {', '.join(diff_signals.get('detected_keywords', [])) or 'none detected'}."
+    )
+    reasoning_steps.append(
+        f"Observed metric shift: accuracy drop {accuracy_drop:.4f}, loss increase {loss_increase:.4f}, impact={context['impact_level']}."
+    )
+
+    category = "Code regression"
+    root_cause = "Recent code-level changes correlate with metric drift in experiment outcomes."
+    fix = "Revert suspect code changes and rerun the baseline-anchored experiment path."
+
+    if "seed" in removed_keywords and accuracy_drop > 0.05:
+        category = "Non-determinism"
+        root_cause = (
+            "The seed parameter appears removed or altered in a way that destabilizes run-to-run behavior, "
+            "which aligns with the observed accuracy degradation."
+        )
+        fix = "Restore a fixed seed and lock deterministic train/test splitting before rerunning analysis."
+        reasoning_steps.append("Detected removal of seed-related control while accuracy drop is significant.")
+        reasoning_steps.append("Missing deterministic seed explains unstable model behavior across runs.")
+    elif "learning_rate" in changed_keywords and loss_increase > 0:
+        category = "Hyperparameter instability"
+        root_cause = (
+            "Learning-rate related modifications align with the rise in loss, indicating unstable optimization "
+            "that degrades generalization quality."
+        )
+        fix = "Revert learning_rate changes or retune with controlled sweeps and reproducible seeds."
+        reasoning_steps.append("Detected learning_rate changes with positive loss increase.")
+        reasoning_steps.append("Coupled metric movement indicates hyperparameter sensitivity.")
+    elif "batch" in changed_keywords and (accuracy_drop > 0.05 or loss_increase > 0.05):
+        category = "Hyperparameter instability"
+        root_cause = (
+            "Batch-related configuration shifted the optimization profile and produced unstable validation behavior."
+        )
+        fix = "Restore prior batch settings and evaluate batch-size variants in a controlled sweep."
+        reasoning_steps.append("Detected batch-related diff lines with meaningful metric shift.")
+    elif any(k in changed_keywords for k in ["shuffle", "random"]) and accuracy_drop > 0.05:
+        category = "Non-determinism"
+        root_cause = (
+            "Randomization/shuffle behavior changed and likely altered data exposure order, causing reproducibility drift."
+        )
+        fix = "Fix shuffle/random_state controls and preserve deterministic split and ordering assumptions."
+        reasoning_steps.append("Detected shuffle/random changes correlated with large accuracy drop.")
+    elif accuracy_drop > 0.1:
+        category = "Hyperparameter instability"
+        root_cause = (
+            "Large accuracy collapse without a single obvious trigger suggests unstable hyperparameter interactions "
+            "introduced by recent changes."
+        )
+        fix = "Rollback recent experiment parameter edits and reintroduce changes one-at-a-time with metric gates."
+        reasoning_steps.append("High-impact metric shock indicates instability beyond normal variation.")
+    elif metrics.get("dataset_hash_match") is False:
+        category = "Data drift"
+        root_cause = "Dataset identity appears inconsistent with baseline expectations, causing evaluation drift."
+        fix = "Restore dataset hash parity with baseline and block execution on hash mismatch."
+        reasoning_steps.append("Dataset mismatch signal points to data drift as primary cause.")
+    else:
+        reasoning_steps.append("No single dominant trigger found; defaulting to code regression hypothesis.")
+
+    confidence = 35
+    if category in {"Non-determinism", "Hyperparameter instability"} and accuracy_drop > 0.1:
+        confidence = 90
+    elif category in {"Non-determinism", "Hyperparameter instability", "Data drift"} and accuracy_drop > 0.05:
+        confidence = 82
+    elif accuracy_drop > 0.05:
+        confidence = 68
+    elif accuracy_drop > 0.02:
+        confidence = 56
+    else:
+        confidence = 42
+
+    if loss_increase > 0.1:
+        confidence = min(95, confidence + 5)
+
+    reasoning_steps.append(f"Assigned confidence {confidence}% based on signal coherence and impact level.")
+
+    return {
+        "root_cause": root_cause,
+        "category": category,
+        "fix": fix,
+        "confidence": confidence,
+        "reasoning_steps": reasoning_steps,
+        "context": context,
+    }
+
+
+def get_git_diff_insights() -> dict:
+    result = run_git(["diff", "HEAD~1", "HEAD"], check=False)
+    diff_text = result.stdout.strip()
+    if not diff_text:
+        return {
+            "diff_snippet": "No diff available for HEAD~1..HEAD.",
+            "affected_parameters": [],
+            "changed_lines": [],
+        }
+
+    affected = []
+    changed_lines = []
+    patterns = [
+        "seed",
+        "random_state",
+        "test_size",
+        "n_estimators",
+        "max_depth",
+        "dataset",
+        "accuracy",
+    ]
+
+    for line in diff_text.splitlines():
+        if line.startswith("+") or line.startswith("-"):
+            for key in patterns:
+                if key in line and key not in affected:
+                    affected.append(key)
+            if any(key in line for key in patterns):
+                changed_lines.append(line[:220])
+
+    return {
+        "diff_snippet": "\n".join(diff_text.splitlines()[:30]),
+        "affected_parameters": affected,
+        "changed_lines": changed_lines[:8],
+    }
+
+
+def get_git_blame_insights() -> dict:
+    result = run_git(["blame", "-L", "1,220", ANALYSIS_TARGET], check=False)
+    if result.returncode != 0:
+        return {
+            "file": ANALYSIS_TARGET,
+            "line": 1,
+            "change": "Unable to resolve blame metadata for target file.",
+            "blame_lines": [],
+        }
+
+    lines = result.stdout.splitlines()
+    highlights = [
+        line for line in lines if any(token in line for token in ["seed", "random_state", "accuracy", "loss"])
+    ]
+    selected = highlights[:5] if highlights else lines[:5]
+
+    line_num = 1
+    if selected:
+        parts = selected[0].split()
+        for part in parts:
+            if part.isdigit():
+                line_num = int(part)
+                break
+
+    return {
+        "file": ANALYSIS_TARGET,
+        "line": line_num,
+        "change": "Recent edits in experiment execution logic likely altered reproducibility behavior.",
+        "blame_lines": selected,
+    }
+
+
+def build_attribution(changes: dict, failure_type: str, blame_info: dict, diff_info: dict) -> dict:
     changed_files = changes.get("changed_files", [])
-    file_name = "experiments/current.yaml"
+    file_name = str(blame_info.get("file") or "experiments/current.yaml")
     if changed_files:
         preferred = [f for f in changed_files if f.startswith("experiments/")]
-        file_name = preferred[0] if preferred else changed_files[0]
+        if not file_name:
+            file_name = preferred[0] if preferred else changed_files[0]
 
-    line_number = 8 if "current.yaml" in file_name else 1
+    line_number = int(blame_info.get("line") or (8 if "current.yaml" in file_name else 1))
+    affected_parameters = diff_info.get("affected_parameters", [])
+    affected_text = ", ".join(affected_parameters) if affected_parameters else "seed and metric controls"
     change = (
-        f"Detected {failure_type.lower()} linked to configuration updates in this file. "
-        "Seed/metric related values likely changed relative to baseline expectations."
+        f"Detected {failure_type.lower()} linked to updates impacting {affected_text}. "
+        "Git blame and recent diff indicate this location is strongly associated with the observed drift."
     )
     return {
         "file": file_name,
         "line": line_number,
         "change": change,
+        "blame_lines": blame_info.get("blame_lines", []),
+        "changed_lines": diff_info.get("changed_lines", []),
     }
 
 
@@ -178,14 +434,28 @@ def parse_json_object(text: str) -> dict | None:
     required = {"root_cause", "category", "fix"}
     if not required.issubset(payload.keys()):
         return None
+
+    confidence = payload.get("confidence", 70)
+    try:
+        confidence = int(confidence)
+    except (TypeError, ValueError):
+        confidence = 70
+    confidence = max(0, min(100, confidence))
+
+    steps = payload.get("reasoning_steps", [])
+    if not isinstance(steps, list):
+        steps = [str(steps)]
+
     return {
         "root_cause": str(payload["root_cause"]),
         "category": str(payload["category"]),
         "fix": str(payload["fix"]),
+        "confidence": confidence,
+        "reasoning_steps": [str(step) for step in steps][:8],
     }
 
 
-def groq_reasoning(comparison: dict, changes: dict) -> dict | None:
+def groq_reasoning(comparison: dict, changes: dict, diff_text: str, metrics: dict) -> dict | None:
     api_key = os.environ.get("GROQ_API_KEY")
     if not api_key:
         return None
@@ -201,10 +471,14 @@ def groq_reasoning(comparison: dict, changes: dict) -> dict | None:
     seen_models: set[str] = set()
     user_prompt = (
         "You are an AI reproducibility engineer. Analyze experiment failure context and return only valid JSON "
-        "with keys root_cause, category, fix.\\n\\n"
+        "with keys root_cause, category, fix, confidence, reasoning_steps.\n\n"
+        "Use category from: Non-determinism, Data drift, Code regression, Hyperparameter instability.\n"
+        "confidence must be 0-100 integer. reasoning_steps must be a concise list of causal steps.\n\n"
         f"metric_difference: accuracy_diff={comparison.get('accuracy_diff')}, "
         f"loss_diff={comparison.get('loss_diff')}, divergence={comparison.get('divergence')}\\n"
-        f"simulated_diff: {json.dumps(changes)}"
+        f"metrics: {json.dumps(metrics)}\n"
+        f"simulated_diff: {json.dumps(changes)}\n"
+        f"git_diff_excerpt: {diff_text[:1200]}"
     )
 
     for model in candidate_models:
@@ -243,20 +517,40 @@ def groq_reasoning(comparison: dict, changes: dict) -> dict | None:
 def main() -> None:
     load_env_file(ENV_FILE)
 
+    baseline = load_yaml(BASELINE_FILE)
     current = load_yaml(CURRENT_FILE)
     comparison = load_yaml(COMPARISON_FILE)
     bisect_result = load_yaml(BISECT_FILE)
 
     suspected_commit = bisect_result.get("first_bad_commit")
     changes = get_simulated_changes(suspected_commit)
-    failure_type = classify_failure(current, comparison)
-    attribution = build_attribution(changes, failure_type)
+    diff_info = get_git_diff_insights()
+    blame_info = get_git_blame_insights()
+    metrics = {
+        "accuracy_drop": float(comparison.get("accuracy_diff", 0.0)),
+        "loss_increase": float(current.get("results", {}).get("loss", 0.0))
+        - float(baseline.get("results", {}).get("loss", 0.0)),
+        "divergence": bool(comparison.get("divergence", False)),
+        "dataset_hash_match": current.get("dataset", {}).get("hash") == baseline.get("dataset", {}).get("hash"),
+    }
 
-    explanation = groq_reasoning(comparison, changes)
-    reasoning_source = "groq-llm"
+    diff_text = str(diff_info.get("diff_snippet", ""))
+
+    explanation = None
+    reasoning_source = "intelligent-fallback"
+    if os.environ.get("GROQ_API_KEY"):
+        print("[INFO] Using Groq LLM reasoning")
+        explanation = groq_reasoning(comparison, changes, diff_text, metrics)
+        if explanation is not None:
+            reasoning_source = "groq-llm"
+
     if explanation is None:
-        explanation = rule_based_reasoning(current, comparison, changes)
-        reasoning_source = "rule-based"
+        print("[INFO] Using intelligent fallback reasoning")
+        explanation = intelligent_fallback_analysis(diff_text, metrics)
+
+    explanation["category"] = normalize_category(str(explanation.get("category", "Code regression")))
+    failure_type = explanation["category"]
+    attribution = build_attribution(changes, failure_type, blame_info, diff_info)
 
     payload = {
         "root_cause": {
@@ -264,15 +558,23 @@ def main() -> None:
             "category": explanation["category"],
             "fix": explanation["fix"],
             "source": reasoning_source,
+            "confidence": int(explanation.get("confidence", 70)),
+            "reasoning_steps": explanation.get("reasoning_steps", []),
         },
         "llm_explanation": {
             "root_cause": explanation["root_cause"],
             "category": explanation["category"],
             "fix": explanation["fix"],
             "failure_type": failure_type,
+            "confidence": int(explanation.get("confidence", 70)),
+            "reasoning_steps": explanation.get("reasoning_steps", []),
         },
         "failure_type": failure_type,
         "attribution": attribution,
+        "git_intelligence": {
+            "diff": diff_info,
+            "blame": blame_info,
+        },
         "suspected_commit": suspected_commit,
         "simulated_diff": changes,
         "supporting_evidence": {

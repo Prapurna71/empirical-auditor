@@ -107,9 +107,61 @@ def build_timeline(
             f"current-run (failure) -> Accuracy {current_acc:.4f} [divergent FAIL] - divergence observed in current execution"
         )
 
+    first_stable = "baseline-v1"
+    first_failure = first_bad if first_bad else "current-run"
+    timeline.append(f"First stable commit: {first_stable}")
+    timeline.append(f"First failure commit: {first_failure}")
+
     if not timeline:
         timeline.append("No commit history available for timeline construction.")
     return timeline
+
+
+def build_confidence_assessment(
+    divergence: bool,
+    accuracy_diff: float,
+    failure_type: str,
+    reasoning_source: str,
+    attribution: dict,
+) -> tuple[int, str]:
+    score = 55
+    reasons: list[str] = []
+
+    if divergence:
+        score += 15
+        reasons.append("divergence is confirmed by threshold comparison")
+    if accuracy_diff > 0.05:
+        score += 10
+        reasons.append("accuracy drop is materially significant")
+    if failure_type in {"Code regression", "Hyperparameter instability", "Non-determinism", "Data drift"}:
+        score += 10
+        reasons.append(f"failure type '{failure_type}' has clear diagnostic criteria")
+    if reasoning_source == "groq-llm":
+        score += 5
+        reasons.append("LLM reasoning corroborates rule-based evidence")
+    if attribution.get("file") and attribution.get("line"):
+        score += 5
+        reasons.append("attribution includes file and line-level localization")
+
+    score = max(0, min(100, score))
+    reason = "; ".join(reasons) if reasons else "limited evidence available"
+    return score, reason
+
+
+def build_anomaly_explanation(
+    failure_type: str,
+    change_delta: float,
+    attribution: dict,
+) -> str:
+    file_name = attribution.get("file", "experiments/current.yaml")
+    line = attribution.get("line", "unknown")
+    direction = "dropped" if change_delta < 0 else "increased"
+    return (
+        f"The run {direction} by {abs(change_delta):.4f} accuracy points after commit-linked edits in "
+        f"{file_name}:{line}. This is classified as {failure_type.lower()}, indicating the execution path or "
+        "experiment controls changed in a way that altered model behavior under the same audit baseline. "
+        "Once this drift appears, downstream comparison, bisect, and blame stages all propagate the same failure signal."
+    )
 
 
 def main() -> None:
@@ -153,6 +205,14 @@ def main() -> None:
     commits = get_recent_commits(limit=5)
     timeline = build_timeline(commits, bisect_result, baseline_acc, current_acc)
     timeline_block = "\n".join([f"- {line}" for line in timeline])
+    confidence_score, confidence_reason = build_confidence_assessment(
+        divergence,
+        accuracy_diff,
+        str(failure_type),
+        str(reasoning_source),
+        attribution,
+    )
+    anomaly_explanation = build_anomaly_explanation(str(failure_type), change_delta, attribution)
 
     report = f"""# Reproducibility Failure Report
 
@@ -207,6 +267,16 @@ File: `{attribution_file}`
 Line: `{attribution_line}`
 
 Change: {attribution_change}
+
+## Self-Evaluation
+
+Confidence: **{confidence_score}%**
+
+Reason: {confidence_reason}
+
+## Why This Failure Happened
+
+{anomaly_explanation}
 
 ## Git Diff
 

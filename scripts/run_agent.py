@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import argparse
+import json
 import re
 import subprocess
 import sys
@@ -13,6 +15,8 @@ AUDIT_LOG = ROOT / "memory" / "audit_log.md"
 REPORT_FILE = ROOT / "memory" / "report.md"
 COMPARISON_FILE = ROOT / "experiments" / "comparison.yaml"
 BASELINE_TAG = "baseline-v1"
+DECISION_FILE = ROOT / "experiments" / "decision.yaml"
+BLAME_FILE = ROOT / "experiments" / "blame_result.yaml"
 
 
 def timestamp() -> str:
@@ -61,9 +65,43 @@ def read_divergence_from_file() -> bool | None:
     return bool(data.get("divergence", False))
 
 
-def run_step(step_label: str, script_name: str, logs: list[str]) -> tuple[int, str, str]:
+def write_decision(decision: dict) -> None:
+    DECISION_FILE.write_text(yaml.safe_dump(decision, sort_keys=False), encoding="utf-8")
+
+
+def read_blame_failure_type() -> str | None:
+    if not BLAME_FILE.exists():
+        return None
+    data = yaml.safe_load(BLAME_FILE.read_text(encoding="utf-8"))
+    if not isinstance(data, dict):
+        return None
+    value = data.get("failure_type")
+    return str(value) if value else None
+
+
+def add_learning_pattern(failure_type: str) -> None:
+    patterns = {
+        "Non-determinism": "Learned pattern: removing seed causes instability.",
+        "Data drift": "Learned pattern: dataset hash mismatch is a strong drift indicator.",
+        "Code regression": "Learned pattern: code-level parameter edits can silently break reproducibility.",
+        "Hyperparameter instability": "Learned pattern: large metric drops often trace back to hyperparameter shifts.",
+    }
+    message = patterns.get(failure_type, f"Learned pattern: observed failure type {failure_type}.")
+    append_audit_line(message)
+
+
+def run_step(
+    step_label: str,
+    script_name: str,
+    logs: list[str],
+    extra_args: list[str] | None = None,
+) -> tuple[int, str, str]:
     command = [sys.executable, str(SCRIPTS_DIR / script_name)]
+    if extra_args:
+        command.extend(extra_args)
     display_command = f"python scripts/{script_name}"
+    if extra_args:
+        display_command = f"{display_command} {' '.join(extra_args)}"
 
     print(f"{step_label} {display_command}")
     logs.append(f"{timestamp()} {step_label} {display_command}")
@@ -127,7 +165,27 @@ def fail(logs: list[str], message: str) -> int:
     return 1
 
 
+def run_decision_engine(logs: list[str], demo: bool) -> dict | None:
+    args = ["--demo"] if demo else None
+    code, stdout, _ = run_step("[DECISION]", "decision_engine.py", logs, extra_args=args)
+    if code != 0:
+        return None
+
+    text = stdout.strip()
+    if not text:
+        return None
+    last_line = text.splitlines()[-1]
+    try:
+        return json.loads(last_line)
+    except json.JSONDecodeError:
+        return None
+
+
 def main() -> int:
+    parser = argparse.ArgumentParser(description="Run adaptive Git-native reproducibility agent")
+    parser.add_argument("--demo", action="store_true", help="Force visible divergence demo mode")
+    args = parser.parse_args()
+
     logs: list[str] = [f"PIPELINE_START: {timestamp()}"]
     append_audit_line("Pipeline started")
 
@@ -136,7 +194,10 @@ def main() -> int:
     print("[STEP 1] Running experiment")
     logs.append("[STEP 1] Running experiment")
     append_audit_line("Experiment started")
-    code, _, _ = run_step("[STEP 1]", "run_experiment.py", logs)
+    run_args = ["--seed", "7"] if args.demo else None
+    if args.demo:
+        append_audit_line("Demo mode enabled: forcing seed=7 for visible divergence")
+    code, _, _ = run_step("[STEP 1]", "run_experiment.py", logs, extra_args=run_args)
     if code != 0:
         return fail(logs, "[ERROR] Experiment step failed.")
     append_audit_line("Experiment completed")
@@ -169,40 +230,71 @@ def main() -> int:
         print("SUCCESS")
         return 0
 
-    print("[STEP 3] Running bisect simulation")
-    logs.append("[STEP 3] Running bisect simulation")
-    append_audit_line("Bisect simulation started")
-    code, _, _ = run_step("[STEP 3]", "bisect_simulation.py", logs)
-    if code != 0:
-        return fail(logs, "[ERROR] Bisect simulation failed.")
-    append_audit_line("Bisect completed")
-    commit_step("analysis: bisect completed", ["experiments/bisect_result.yaml", "memory/audit_log.md"])
+    decision = run_decision_engine(logs, args.demo)
+    if decision is None:
+        return fail(logs, "[ERROR] Decision engine failed to produce valid output.")
 
-    print("[STEP 4] Running blame analysis")
-    logs.append("[STEP 4] Running blame analysis")
-    append_audit_line("Root cause analysis started")
-    code, _, _ = run_step("[STEP 4]", "blame_analysis.py", logs)
-    if code != 0:
-        return fail(logs, "[ERROR] Blame analysis failed.")
-    append_audit_line("Root cause analysis completed")
-    commit_step("analysis: root cause generated", ["experiments/blame_result.yaml", "memory/audit_log.md"])
+    write_decision(decision)
+    append_audit_line(
+        f"Decision engine: severity={decision.get('severity')} actions={decision.get('actions')}"
+    )
+    commit_step("analysis: adaptive decision computed", ["experiments/decision.yaml", "memory/audit_log.md"])
 
-    print("[STEP 5] Generating report")
-    logs.append("[STEP 5] Generating report")
-    append_audit_line("Report generation started")
-    code, _, _ = run_step("[STEP 5]", "generate_report.py", logs)
-    if code != 0:
-        return fail(logs, "[ERROR] Report generation failed.")
-    append_audit_line("Report generated")
-    commit_step("report: reproducibility failure", ["memory/report.md", "memory/audit_log.md"])
+    actions = decision.get("actions", []) if isinstance(decision, dict) else []
+    if not isinstance(actions, list):
+        actions = []
 
-    print("[STEP 6] Creating replication PR")
-    logs.append("[STEP 6] Creating replication PR")
-    append_audit_line("PR simulation started")
-    code, _, _ = run_step("[STEP 6]", "create_pr.py", logs)
-    if code != 0:
-        return fail(logs, "[ERROR] PR creation simulation failed.")
-    append_audit_line("PR simulation completed")
+    if "bisect" in actions:
+        print("[STEP 3] Running bisect simulation")
+        logs.append("[STEP 3] Running bisect simulation")
+        append_audit_line("Bisect simulation started")
+        code, _, _ = run_step("[STEP 3]", "bisect_simulation.py", logs)
+        if code != 0:
+            return fail(logs, "[ERROR] Bisect simulation failed.")
+        append_audit_line("Bisect completed")
+        commit_step("analysis: bisect completed", ["experiments/bisect_result.yaml", "memory/audit_log.md"])
+    else:
+        append_audit_line("Decision engine skipped bisect for this run")
+
+    if "blame" in actions:
+        print("[STEP 4] Running blame analysis")
+        logs.append("[STEP 4] Running blame analysis")
+        append_audit_line("Root cause analysis started")
+        code, _, _ = run_step("[STEP 4]", "blame_analysis.py", logs)
+        if code != 0:
+            return fail(logs, "[ERROR] Blame analysis failed.")
+        append_audit_line("Root cause analysis completed")
+
+        failure_type = read_blame_failure_type()
+        if failure_type:
+            add_learning_pattern(failure_type)
+
+        commit_step("analysis: root cause generated", ["experiments/blame_result.yaml", "memory/audit_log.md"])
+    else:
+        append_audit_line("Decision engine skipped blame analysis for this run")
+
+    if "report" in actions:
+        print("[STEP 5] Generating report")
+        logs.append("[STEP 5] Generating report")
+        append_audit_line("Report generation started")
+        code, _, _ = run_step("[STEP 5]", "generate_report.py", logs)
+        if code != 0:
+            return fail(logs, "[ERROR] Report generation failed.")
+        append_audit_line("Report generated")
+        commit_step("report: reproducibility failure", ["memory/report.md", "memory/audit_log.md"])
+    else:
+        append_audit_line("Decision engine skipped report generation for this run")
+
+    if "pr" in actions:
+        print("[STEP 6] Creating replication PR")
+        logs.append("[STEP 6] Creating replication PR")
+        append_audit_line("PR simulation started")
+        code, _, _ = run_step("[STEP 6]", "create_pr.py", logs)
+        if code != 0:
+            return fail(logs, "[ERROR] PR creation simulation failed.")
+        append_audit_line("PR simulation completed")
+    else:
+        append_audit_line("Decision engine skipped PR simulation for this run")
 
     logs.append("FINAL_RESULT: SUCCESS")
     logs.append(f"PIPELINE_END: {timestamp()}")

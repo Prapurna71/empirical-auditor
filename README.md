@@ -70,6 +70,34 @@ Set `GROQ_API_KEY` in `.env`.
 npx -y @open-gitagent/gitagent validate
 ```
 
+Current status:
+- agent.yaml valid
+- SOUL.md valid
+- skills/ valid
+- validator warnings: 0
+
+## Hackathon Compliance Checklist
+
+This repository is aligned to hackathon-critical Skills + Rules requirements.
+
+- Skills are declared in agent.yaml and exist as six kebab-case folders under skills/.
+- Each skill has valid frontmatter (name + description + allowed-tools) and a concrete executable instruction.
+- Rules are codified in RULES.md and enforced by runtime checks:
+   - missing seed is blocked
+   - missing dataset hash is blocked
+   - divergence threshold is enforced at 0.05
+   - divergent runs trigger forensic path (bisect, blame, report, PR simulation)
+- Identity and policy docs are present and validated:
+   - SOUL.md
+   - DUTIES.md
+   - RULES.md
+
+Enforcement evidence in scripts:
+- scripts/run_experiment.py raises policy violation when hyperparameters.seed is missing.
+- scripts/compare_results.py raises policy violations for missing seed or dataset hash and applies threshold 0.05.
+- scripts/run_agent.py executes adaptive failure workflow when divergence is detected.
+- scripts/blame_analysis.py outputs structured root-cause reasoning with confidence and reasoning steps.
+
 ## Run With Gitclaw
 
 ```bash
