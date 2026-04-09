@@ -426,4 +426,50 @@ Simulated PR created: repro-failure-branch -> main
 - 2026-04-09T18:59:32.811434+00:00: Report generation started
 - 2026-04-09T18:59:32.992315+00:00: Report generated
 - 2026-04-09T18:59:33.109219+00:00: PR simulation started
-- 2026-04-09T18:59:33.172355+00:00: Simulated replication PR created.\n
+- 2026-04-09T18:59:33.172355+00:00: Simulated replication PR created.\n- 2026-04-09T18:59:33.394108+00:00: PR simulation completed
+
+## Pipeline Run
+
+- PIPELINE_START: 2026-04-09T18:59:25.614104+00:00
+- BASELINE_TAG_EXISTS: baseline-v1
+- [STEP 1] Running experiment
+- 2026-04-09T18:59:25.648107+00:00 [STEP 1] python scripts/run_experiment.py --seed 7
+- STDOUT:
+Experiment re-run complete: seed=7, accuracy=0.81, loss=0.5225
+- EXIT_CODE: 0
+- [STEP 2] Detecting divergence
+- 2026-04-09T18:59:27.782958+00:00 [STEP 2] python scripts/compare_results.py
+- STDOUT:
+divergence=true
+accuracy_diff=0.1789 threshold=0.05 loss_diff=0.4063
+- EXIT_CODE: 0
+- 2026-04-09T18:59:28.063184+00:00 [DECISION] python scripts/decision_engine.py --demo
+- STDOUT:
+{"severity": "high", "actions": ["bisect", "blame", "report", "pr"], "reasoning": "Divergence exceeds 0.05; full forensic analysis is required. Demo mode enabled; forcing visible failure-analysis path.", "metadata": {"accuracy_diff": 0.1789, "divergence": true, "seed": 7, "dataset_hash_present": true, "demo": true}}
+- EXIT_CODE: 0
+- [STEP 3] Running bisect simulation
+- 2026-04-09T18:59:28.288799+00:00 [STEP 3] python scripts/bisect_simulation.py
+- STDOUT:
+Experiment re-run complete: seed=12, accuracy=0.9222, loss=2.8153
+commit=0a56ebc accuracy_diff=0.0667 status=bad
+first_bad_commit=0a56ebc
+message=Initial commit: Empirical Auditor gitagent repository
+- EXIT_CODE: 0
+- [STEP 4] Running blame analysis
+- 2026-04-09T18:59:30.787087+00:00 [STEP 4] python scripts/blame_analysis.py
+- STDOUT:
+[INFO] Using Groq LLM reasoning
+{'root_cause': {'summary': 'history_size change', 'category': 'Hyperparameter instability', 'fix': 'Revert history_size change or re-tune hyperparameters', 'source': 'groq-llm', 'confidence': 80, 'reasoning_steps': ['Divergence detected between experiment runs', 'No changes in dataset (dataset_hash_match=true)', 'Code changes detected, but only in non-code files and experiment configuration', 'History size change detected in bisect_result.yaml', 'History size change likely caused hyperparameter instability']}, 'llm_explanation': {'root_cause': 'history_size change', 'category': 'Hyperparameter instability', 'fix': 'Revert history_size change or re-tune hyperparameters', 'failure_type': 'Hyperparameter instability', 'confidence': 80, 'reasoning_steps': ['Divergence detected between experiment runs', 'No changes in dataset (dataset_hash_match=true)', 'Code changes detected, but only in non-code files and experiment configuration', 'History size change detected in bisect_result.yaml', 'History size change likely caused hyperparameter instability']}, 'failure_type': 'Hyperparameter instability', 'attribution': {'file': 'scripts/run_experiment.py', 'line': 1, 'change': 'Detected hyperparameter instability linked to updates impacting seed and metric controls. Git blame and recent diff indicate this location is strongly associated with the observed drift.', 'blame_lines': ['^0a56ebc (Prapurna71 2026-04-09 22:57:13 +0530   8) from sklearn.metrics import accuracy_score, log_loss', '14381566 (Prapurna71 2026-04-09 23:53:43 +0530  34) def demo_metrics(seed: int, raw_accuracy: float, raw_loss: float) -> tuple[float, float]:', '14381566 (Prapurna71 2026-04-09 23:53:43 +0530  35)     # Deterministic, seed-driven metrics make divergence demos reliable across reruns.', '14381566 (Prapurna71 2026-04-09 23:53:43 +0530  36)     if seed == 42:', '14381566 (Prapurna71 2026-04-09 23:53:43 +0530  37)         demo_accuracy = 0.94'], 'changed_lines': []}, 'git_intelligence': {'diff': {'diff_snippet': "diff --git a/experiments/bisect_result.yaml b/experiments/bisect_result.yaml\nindex c2bdb9a..fd2de52 100644\n--- a/experiments/bisect_result.yaml\n+++ b/experiments/bisect_result.yaml\n@@ -2,7 +2,7 @@ divergence: true\n first_bad_commit: 0a56ebc\n commit_message: 'Initial commit: Empirical Auditor gitagent repository'\n threshold: 0.05\n-history_size: 34\n+history_size: 43\n inspected:\n - commit: 0a56ebc\n   message: 'Initial commit: Empirical Auditor gitagent repository'\ndiff --git a/memory/audit_log.md b/memory/audit_log.md\nindex 683377d..a259300 100644\n--- a/memory/audit_log.md\n+++ b/memory/audit_log.md\n@@ -418,3 +418,5 @@ Simulated PR created: repro-failure-branch -> main\n - 2026-04-09T18:59:27.781957+00:00: Divergence detection started\n - 2026-04-09T18:59:27.951485+00:00: Divergence detected=True\n - 2026-04-09T18:59:28.171708+00:00: Decision engine: severity=high actions=['bisect', 'blame', 'report', 'pr']\n+- 2026-04-09T18:59:28.287799+00:00: Bisect simulation started\n+- 2026-04-09T18:59:30.667400+00:00: Bisect completed", 'affected_parameters': [], 'changed_lines': []}, 'blame': {'file': 'scripts/run_experiment.py', 'line': 1, 'change': 'Recent edits in experiment execution logic likely altered reproducibility behavior.', 'blame_lines': ['^0a56ebc (Prapurna71 2026-04-09 22:57:13 +0530   8) from sklearn.metrics import accuracy_score, log_loss', '14381566 (Prapurna71 2026-04-09 23:53:43 +0530  34) def demo_metrics(seed: int, raw_accuracy: float, raw_loss: float) -> tuple[float, float]:', '14381566 (Prapurna71 2026-04-09 23:53:43 +0530  35)     # Deterministic, seed-driven metrics make divergence demos reliable across reruns.', '14381566 (Prapurna71 2026-04-09 23:53:43 +0530  36)     if seed == 42:', '14381566 (Prapurna71 2026-04-09 23:53:43 +0530  37)         demo_accuracy = 0.94']}}, 'suspected_commit': '0a56ebc', 'simulated_diff': {'summary': 'commit 0a56ebc', 'changed_files': ['DUTIES.md', 'README.md', 'RULES.md', 'SOUL.md', 'agent.yaml', 'experiments/baseline.yaml', 'experiments/bisect_result.yaml', 'experiments/blame_result.yaml', 'experiments/comparison.yaml', 'experiments/current.yaml', 'knowledge/baseline.md', 'memory/audit_log.md', 'memory/replication_pr.md', 'memory/report.md', 'scripts/bisect_simulation.py', 'scripts/blame_analysis.py', 'scripts/compare_results.py', 'scripts/create_pr.py', 'scripts/generate_report.py', 'scripts/run_experiment.py', 'skills/bisect-failure/SKILL.md', 'skills/blame-root-cause/SKILL.md', 'skills/create-replication-pr/SKILL.md', 'skills/detect-divergence/SKILL.md', 'skills/generate-report/SKILL.md', 'skills/reproduce-experiment/SKILL.md']}, 'supporting_evidence': {'accuracy_diff': 0.1789, 'loss_diff': 0.4063, 'divergence': True}}
+- EXIT_CODE: 0
+- [STEP 5] Generating report
+- 2026-04-09T18:59:32.811946+00:00 [STEP 5] python scripts/generate_report.py
+- STDOUT:
+Report generated at C:\documents\gitagent\empirical-auditor\memory\report.md
+- EXIT_CODE: 0
+- [STEP 6] Creating replication PR
+- 2026-04-09T18:59:33.110227+00:00 [STEP 6] python scripts/create_pr.py
+- STDOUT:
+Simulated PR created: repro-failure-branch -> main
+- EXIT_CODE: 0
+- FINAL_RESULT: SUCCESS
+- PIPELINE_END: 2026-04-09T18:59:33.394108+00:00
