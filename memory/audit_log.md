@@ -293,3 +293,5 @@ Simulated PR created: repro-failure-branch -> main
 - 2026-04-09T18:31:10.699190+00:00: Divergence detection started
 - 2026-04-09T18:31:10.898823+00:00: Divergence detected=True
 - 2026-04-09T18:31:11.178335+00:00: Decision engine: severity=high actions=['bisect', 'blame', 'report', 'pr']
+- 2026-04-09T18:31:11.326469+00:00: Bisect simulation started
+- 2026-04-09T18:31:14.075415+00:00: Bisect completed
