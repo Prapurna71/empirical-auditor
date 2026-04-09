@@ -1,11 +1,45 @@
 root_cause:
-  cause: seed_drift
-  summary: Recorded seed differs from baseline behavior and introduced measurable
-    metric divergence.
-  severity: high
-  confidence: 0.91
-suspected_commit: d4e5f6g
+  summary: Uncommitted changes in experiment configuration files
+  category: Experiment Configuration
+  fix: Commit all changes, especially in experiments/baseline.yaml, experiments/current.yaml,
+    and scripts/run_experiment.py, before running the experiment
+  source: groq-llm
+llm_explanation:
+  root_cause: Uncommitted changes in experiment configuration files
+  category: Experiment Configuration
+  fix: Commit all changes, especially in experiments/baseline.yaml, experiments/current.yaml,
+    and scripts/run_experiment.py, before running the experiment
+suspected_commit: 0a56ebc
+simulated_diff:
+  summary: commit 0a56ebc
+  changed_files:
+  - DUTIES.md
+  - README.md
+  - RULES.md
+  - SOUL.md
+  - agent.yaml
+  - experiments/baseline.yaml
+  - experiments/bisect_result.yaml
+  - experiments/blame_result.yaml
+  - experiments/comparison.yaml
+  - experiments/current.yaml
+  - knowledge/baseline.md
+  - memory/audit_log.md
+  - memory/replication_pr.md
+  - memory/report.md
+  - scripts/bisect_simulation.py
+  - scripts/blame_analysis.py
+  - scripts/compare_results.py
+  - scripts/create_pr.py
+  - scripts/generate_report.py
+  - scripts/run_experiment.py
+  - skills/bisect-failure/SKILL.md
+  - skills/blame-root-cause/SKILL.md
+  - skills/create-replication-pr/SKILL.md
+  - skills/detect-divergence/SKILL.md
+  - skills/generate-report/SKILL.md
+  - skills/reproduce-experiment/SKILL.md
 supporting_evidence:
-  accuracy_diff: 0.0667
-  loss_diff: 2.6991
+  accuracy_diff: 0.1789
+  loss_diff: 0.4063
   divergence: true
