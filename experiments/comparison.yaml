@@ -1,6 +1,8 @@
 baseline_experiment: exp-iris-baseline
 current_experiment: exp-iris-current
+baseline_source: git-tag:baseline-v1
+baseline_tag: baseline-v1
 threshold: 0.05
-accuracy_diff: 0.0667
-loss_diff: 2.6991
+accuracy_diff: 0.1789
+loss_diff: 0.4063
 divergence: true
