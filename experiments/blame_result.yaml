@@ -1,19 +1,21 @@
 root_cause:
-  summary: Changes in experiment configuration files
-  category: Experiment Configuration
-  fix: Review and revert changes in experiments/baseline.yaml, experiments/bisect_result.yaml,
-    experiments/blame_result.yaml, experiments/comparison.yaml, experiments/current.yaml,
-    and scripts/run_experiment.py to ensure consistency with the original experiment
-    setup
+  summary: history_size change
+  category: Hyperparameter instability
+  fix: Revert history_size change or adjust threshold
   source: groq-llm
+  confidence: 90
+  reasoning_steps: &id001
+  - Divergence detected with significant metric differences
+  - Git diff shows history_size change in bisect_result.yaml
+  - No code changes in model or data processing
+  - History size change likely affected model performance
 llm_explanation:
-  root_cause: Changes in experiment configuration files
-  category: Experiment Configuration
-  fix: Review and revert changes in experiments/baseline.yaml, experiments/bisect_result.yaml,
-    experiments/blame_result.yaml, experiments/comparison.yaml, experiments/current.yaml,
-    and scripts/run_experiment.py to ensure consistency with the original experiment
-    setup
+  root_cause: history_size change
+  category: Hyperparameter instability
+  fix: Revert history_size change or adjust threshold
   failure_type: Hyperparameter instability
+  confidence: 90
+  reasoning_steps: *id001
 failure_type: Hyperparameter instability
 attribution:
   file: scripts/run_experiment.py
@@ -21,7 +23,7 @@ attribution:
   change: Detected hyperparameter instability linked to updates impacting seed and
     metric controls. Git blame and recent diff indicate this location is strongly
     associated with the observed drift.
-  blame_lines: &id002
+  blame_lines: &id003
   - ^0a56ebc (Prapurna71 2026-04-09 22:57:13 +0530   8) from sklearn.metrics import
     accuracy_score, log_loss
   - '14381566 (Prapurna71 2026-04-09 23:53:43 +0530  34) def demo_metrics(seed: int,
@@ -30,30 +32,30 @@ attribution:
     metrics make divergence demos reliable across reruns.'
   - '14381566 (Prapurna71 2026-04-09 23:53:43 +0530  36)     if seed == 42:'
   - 14381566 (Prapurna71 2026-04-09 23:53:43 +0530  37)         demo_accuracy = 0.94
-  changed_lines: &id001 []
+  changed_lines: &id002 []
 git_intelligence:
   diff:
     diff_snippet: "diff --git a/experiments/bisect_result.yaml b/experiments/bisect_result.yaml\n\
-      index 45bb058..99419ec 100644\n--- a/experiments/bisect_result.yaml\n+++ b/experiments/bisect_result.yaml\n\
+      index 99419ec..c2bdb9a 100644\n--- a/experiments/bisect_result.yaml\n+++ b/experiments/bisect_result.yaml\n\
       @@ -2,7 +2,7 @@ divergence: true\n first_bad_commit: 0a56ebc\n commit_message:\
       \ 'Initial commit: Empirical Auditor gitagent repository'\n threshold: 0.05\n\
-      -history_size: 17\n+history_size: 26\n inspected:\n - commit: 0a56ebc\n   message:\
+      -history_size: 26\n+history_size: 34\n inspected:\n - commit: 0a56ebc\n   message:\
       \ 'Initial commit: Empirical Auditor gitagent repository'\ndiff --git a/memory/audit_log.md\
-      \ b/memory/audit_log.md\nindex 0bafec1..3b08ee9 100644\n--- a/memory/audit_log.md\n\
-      +++ b/memory/audit_log.md\n@@ -293,3 +293,5 @@ Simulated PR created: repro-failure-branch\
-      \ -> main\n - 2026-04-09T18:31:10.699190+00:00: Divergence detection started\n\
-      \ - 2026-04-09T18:31:10.898823+00:00: Divergence detected=True\n - 2026-04-09T18:31:11.178335+00:00:\
+      \ b/memory/audit_log.md\nindex 58cbf04..114c7f5 100644\n--- a/memory/audit_log.md\n\
+      +++ b/memory/audit_log.md\n@@ -355,3 +355,5 @@ Simulated PR created: repro-failure-branch\
+      \ -> main\n - 2026-04-09T18:35:27.898295+00:00: Divergence detection started\n\
+      \ - 2026-04-09T18:35:28.062621+00:00: Divergence detected=True\n - 2026-04-09T18:35:28.282163+00:00:\
       \ Decision engine: severity=high actions=['bisect', 'blame', 'report', 'pr']\n\
-      +- 2026-04-09T18:31:11.326469+00:00: Bisect simulation started\n+- 2026-04-09T18:31:14.075415+00:00:\
+      +- 2026-04-09T18:35:28.402473+00:00: Bisect simulation started\n+- 2026-04-09T18:35:30.861780+00:00:\
       \ Bisect completed"
     affected_parameters: []
-    changed_lines: *id001
+    changed_lines: *id002
   blame:
     file: scripts/run_experiment.py
     line: 1
     change: Recent edits in experiment execution logic likely altered reproducibility
       behavior.
-    blame_lines: *id002
+    blame_lines: *id003
 suspected_commit: 0a56ebc
 simulated_diff:
   summary: commit 0a56ebc
