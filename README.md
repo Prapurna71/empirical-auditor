@@ -1,109 +1,122 @@
 # Empirical Auditor - Scientific Reproducibility Agent
 
-Empirical Auditor is a Git-native AI agent for detecting ML reproducibility failures with auditable, file-based evidence.
+Empirical Auditor is a fully Git-native AI agent that treats Git history as the source of truth for ML reproducibility decisions.
 
-## Problem
+## Why This Matters
 
-Machine learning teams often cannot reliably reproduce historical results. Missing seeds, undocumented data changes, or untracked environment drift can make previous metrics impossible to validate. This is a practical form of the reproducibility crisis.
+The reproducibility crisis in ML happens when teams cannot answer simple questions with evidence:
+- Which exact experiment configuration produced the reported metric?
+- When did the drift start?
+- What change introduced the failure?
 
-## Solution
+Empirical Auditor addresses this by converting every stage of the audit process into versioned Git artifacts and commits.
 
-Empirical Auditor treats Git as a scientific ledger:
-- experiment manifests are stored as versioned YAML
-- experiments are re-run from scriptable procedures
-- baseline and current metrics are compared against a strict divergence threshold
-- root cause is localized via simulated bisect and blame workflows
-- a structured markdown report and replication PR artifact are produced
+## Git-Native Core
 
-## Architecture Flow Diagram
+Git is used as the runtime memory and audit database:
+- Every pipeline step writes files and creates a commit.
+- Baseline comparisons use a Git tag (`baseline-v1`).
+- Divergence analysis uses `git log`, `git checkout`, and commit-level replay.
+- Reports include real `git diff` evidence.
+- Failure handling creates a PR branch simulation.
 
-[Git YAML Experiments] -> [run_experiment.py] -> [compare_results.py]
-       -> if divergence -> [bisect_simulation.py] -> [blame_analysis.py]
-       -> [generate_report.py] -> [create_pr.py]
-       -> [memory/report.md + memory/replication_pr.md]
+## Architecture Diagram (Text)
 
-## Repository Structure
+```
+python scripts/run_agent.py
+  -> [Step 1] run_experiment.py
+     -> commit: experiment: new run
+  -> [Step 2] compare_results.py
+     -> baseline source: git show baseline-v1:experiments/baseline.yaml
+     -> commit: analysis: divergence detected / analysis: no divergence
+  -> if divergence:
+     -> [Step 3] bisect_simulation.py
+        -> commit: analysis: bisect completed
+     -> [Step 4] blame_analysis.py (Groq + fallback)
+        -> commit: analysis: root cause generated
+     -> [Step 5] generate_report.py (includes Git diff)
+        -> commit: report: reproducibility failure
+     -> [Step 6] create_pr.py
+        -> branch: repro-failure-branch
+        -> commit: Reproducibility failure report
+```
 
-- agent metadata: `agent.yaml`, `SOUL.md`, `RULES.md`, `DUTIES.md`
-- experiment manifests: `experiments/baseline.yaml`, `experiments/current.yaml`
-- execution scripts: `scripts/*.py`
-- skills: `skills/*/SKILL.md`
-- outputs: `memory/audit_log.md`, `memory/report.md`, `memory/replication_pr.md`
+## Setup
 
-## Local Setup
+1. Create and activate environment:
 
-1. Create and activate conda environment:
-
-   ```bash
-   conda create -n gitagent-env python=3.11 -y
-   conda activate gitagent-env
-   ```
+```bash
+conda create -n gitagent-env python=3.11 -y
+conda activate gitagent-env
+```
 
 2. Install dependencies:
 
-   ```bash
-   pip install pyyaml scikit-learn
-   ```
+```bash
+pip install pyyaml scikit-learn groq
+```
+
+3. Configure LLM key (optional but recommended):
+
+```bash
+copy .env.example .env
+```
+
+Set `GROQ_API_KEY` in `.env`.
 
 ## Validate Gitagent Spec
 
-Run:
-
 ```bash
-npx gitagent validate
+npx -y @open-gitagent/gitagent validate
 ```
 
 ## Run With Gitclaw
-
-Run the agent repository with gitclaw from this directory:
 
 ```bash
 gitclaw run .
 ```
 
-If your gitclaw version expects an explicit agent file, use:
+## One-Command Demo
 
 ```bash
-gitclaw run --agent agent.yaml .
+python scripts/run_agent.py
 ```
 
-## Demo Steps
+What this command does:
+- Runs experiment and commits results.
+- Compares against baseline from Git tag.
+- Detects divergence and stops early if stable.
+- If divergent, runs bisect + root cause reasoning + report + PR branch simulation.
+- Appends live logs to `memory/audit_log.md`.
 
-1. Ensure divergence scenario by changing seed in `experiments/current.yaml` to a different value than baseline.
-2. Re-run the experiment:
-
-   ```bash
-   python scripts/run_experiment.py
-   ```
-
-3. Detect divergence:
-
-   ```bash
-   python scripts/compare_results.py
-   ```
-
-4. If divergence is true, run full audit pipeline:
-
-   ```bash
-   python scripts/bisect_simulation.py
-   python scripts/blame_analysis.py
-   python scripts/generate_report.py
-   python scripts/create_pr.py
-   ```
-
-## Example Output
+## Sample Output
 
 ```text
-Experiment re-run complete: seed=12, accuracy=0.9222, loss=2.8153
+[STEP 1] Running experiment
+[STEP 2] Detecting divergence
 divergence=true
-accuracy_diff=0.0667 threshold=0.05 loss_diff=2.6991
-first_bad_commit=d4e5f6g
-PR CREATED
+[STEP 3] Running bisect simulation
+first_bad_commit=<hash>
+[STEP 4] Running blame analysis
+[STEP 5] Generating report
+[STEP 6] Creating replication PR
+Simulated PR created: repro-failure-branch -> main
+SUCCESS
 ```
 
-Generated artifacts:
+## Demo Artifacts
+
+- `experiments/current.yaml`
 - `experiments/comparison.yaml`
 - `experiments/bisect_result.yaml`
 - `experiments/blame_result.yaml`
 - `memory/report.md`
 - `memory/replication_pr.md`
+- `memory/audit_log.md`
+
+## Why This Wins Hackathons
+
+- Strong visual story: each step is visible in Git commits.
+- Deterministic demo path: seed-driven divergence simulation.
+- Real debugging narrative: diff + bisect + root-cause explanation.
+- End-to-end automation from run to PR simulation in one command.

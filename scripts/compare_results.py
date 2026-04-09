@@ -1,4 +1,5 @@
 from pathlib import Path
+import subprocess
 
 import yaml
 
@@ -7,6 +8,7 @@ BASELINE_FILE = ROOT / "experiments" / "baseline.yaml"
 CURRENT_FILE = ROOT / "experiments" / "current.yaml"
 OUTPUT_FILE = ROOT / "experiments" / "comparison.yaml"
 THRESHOLD = 0.05
+BASELINE_TAG = "baseline-v1"
 
 
 def load_yaml(path: Path) -> dict:
@@ -22,6 +24,30 @@ def save_yaml(path: Path, payload: dict) -> None:
         yaml.safe_dump(payload, handle, sort_keys=False)
 
 
+def load_baseline_from_git_tag() -> tuple[dict, str]:
+    tag_check = subprocess.run(
+        ["git", "tag", "--list", BASELINE_TAG],
+        cwd=ROOT,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if tag_check.returncode == 0 and tag_check.stdout.strip() == BASELINE_TAG:
+        show = subprocess.run(
+            ["git", "show", f"{BASELINE_TAG}:experiments/baseline.yaml"],
+            cwd=ROOT,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        if show.returncode == 0:
+            data = yaml.safe_load(show.stdout)
+            if isinstance(data, dict):
+                return data, f"git-tag:{BASELINE_TAG}"
+
+    return load_yaml(BASELINE_FILE), "workspace-file"
+
+
 def enforce_metadata(manifest: dict, name: str) -> None:
     dataset_hash = manifest.get("dataset", {}).get("hash")
     seed = manifest.get("hyperparameters", {}).get("seed")
@@ -32,7 +58,7 @@ def enforce_metadata(manifest: dict, name: str) -> None:
 
 
 def main() -> None:
-    baseline = load_yaml(BASELINE_FILE)
+    baseline, baseline_source = load_baseline_from_git_tag()
     current = load_yaml(CURRENT_FILE)
 
     enforce_metadata(baseline, "baseline")
@@ -50,6 +76,8 @@ def main() -> None:
     result = {
         "baseline_experiment": baseline.get("experiment_id"),
         "current_experiment": current.get("experiment_id"),
+        "baseline_source": baseline_source,
+        "baseline_tag": BASELINE_TAG,
         "threshold": THRESHOLD,
         "accuracy_diff": round(accuracy_diff, 4),
         "loss_diff": round(loss_diff, 4),
