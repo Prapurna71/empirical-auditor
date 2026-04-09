@@ -2,6 +2,18 @@
 
 Empirical Auditor is a fully Git-native AI agent that treats Git history as the source of truth for ML reproducibility decisions.
 
+## What This Agent Is For
+
+This agent is useful when you need to answer a reproducibility failure with evidence instead of guesses.
+It does not just say that a run changed; it shows what changed, where it changed, and what the likely fix is.
+
+In practice, it helps you:
+- reproduce an experiment
+- detect metric drift
+- identify the first bad commit or likely source change
+- generate a readable report with a short solution summary
+- create a branch-based audit trail for review
+
 ## Why This Matters
 
 The reproducibility crisis in ML happens when teams cannot answer simple questions with evidence:
@@ -19,6 +31,17 @@ Git is used as the runtime memory and audit database:
 - Divergence analysis uses `git log`, `git checkout`, and commit-level replay.
 - Reports include real `git diff` evidence.
 - Failure handling creates a PR branch simulation.
+
+## How It Works
+
+The agent runs as a Git-backed pipeline:
+1. Re-run the experiment.
+2. Compare current metrics with the baseline.
+3. If divergence exists, run bisect and blame analysis.
+4. Generate a report with root cause, confidence, and recommended fix.
+5. Optionally create and push a branch for review.
+
+The output is designed to be easy to inspect in Git, in the report file, and in the terminal logs.
 
 ## Architecture Diagram (Text)
 
@@ -192,9 +215,22 @@ Safety:
 
 ## LLM Reasoning and Fallback
 
-- If `GROQ_API_KEY` is configured, the agent uses LLM reasoning for richer root-cause analysis.
+- If `GROQ_API_KEY` is configured, the agent uses LLM reasoning for deeper root-cause analysis and better explanation quality.
 - If no API key is provided, the agent automatically switches to intelligent fallback reasoning.
-- Fallback mode is fully supported and produces the same structured outcome fields (root cause, category, fix, confidence, reasoning steps).
+- Fallback mode is fully supported and still produces the same structured fields: root cause, category, fix, confidence, and reasoning steps.
+- In both modes, the agent still generates the audit report and solution summary.
+
+## What the Results Show
+
+The report and console output are meant to answer these questions quickly:
+- What failed: the metric difference and divergence status.
+- When it failed: the pipeline order and timeline of actions.
+- Why it failed: the root-cause summary and reasoning steps.
+- What to do: the recommended fix or solution path.
+
+The report also includes a short confidence score and a readable explanation, so judges can see both the summary and the proposed solution at a glance.
+
+## Local Demo Flow
 
 What this command does:
 - Runs experiment and commits results.
