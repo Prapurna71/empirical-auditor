@@ -300,3 +300,5 @@ Simulated PR created: repro-failure-branch -> main
 - 2026-04-09T18:31:17.563440+00:00: Learned pattern: large metric drops often trace back to hyperparameter shifts.
 - 2026-04-09T18:31:17.728535+00:00: Report generation started
 - 2026-04-09T18:31:18.014989+00:00: Report generated
+- 2026-04-09T18:31:18.148712+00:00: PR simulation started
+- 2026-04-09T18:31:18.229002+00:00: Simulated replication PR created.\n
