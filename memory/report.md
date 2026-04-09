@@ -10,7 +10,7 @@ Change: **-0.1789**
 
 Status: **FAIL ❌**
 
-Generated At: 2026-04-09 18:35:33 UTC
+Generated At: 2026-04-09 18:59:32 UTC
 
 ## Metric Comparison Table
 
@@ -33,9 +33,9 @@ Reproducibility Score: **75/100**
 ## Experiment Timeline
 
 - baseline-v1 (baseline) -> Accuracy 0.9889 [stable PASS] - tagged stable baseline
-- 1a466b0 (intermediate) -> Accuracy 0.9789 [stable PASS] - analysis: divergence detected
-- 61a0c98 (intermediate) -> Accuracy 0.9689 [stable PASS] - analysis: adaptive decision computed
-- 8dd4d7f (intermediate) -> Accuracy 0.9589 [stable PASS] - analysis: bisect completed
+- 27ace1d (intermediate) -> Accuracy 0.9789 [stable PASS] - analysis: divergence detected
+- 9b1956a (intermediate) -> Accuracy 0.9689 [stable PASS] - analysis: adaptive decision computed
+- f10c512 (intermediate) -> Accuracy 0.9589 [stable PASS] - analysis: bisect completed
 - 0a56ebc (failure) -> Accuracy 0.8100 [divergent FAIL] - Initial commit: Empirical Auditor gitagent repository
 - First stable commit: baseline-v1
 - First failure commit: 0a56ebc
@@ -76,5 +76,5 @@ No diff detected between experiments/baseline.yaml and experiments/current.yaml.
 
 ## Recommended Fix
 
-Revert history_size change or adjust threshold
+Revert history_size change or re-tune hyperparameters
 
