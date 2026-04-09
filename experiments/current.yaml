@@ -5,7 +5,7 @@ dataset:
 environment:
   python: '3.11'
 hyperparameters:
-  seed: 12
+  seed: 7
 results:
-  accuracy: 0.9222
-  loss: 2.8153
+  accuracy: 0.81
+  loss: 0.5225
