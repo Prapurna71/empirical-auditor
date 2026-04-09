@@ -1,0 +1,11 @@
+root_cause:
+  cause: seed_drift
+  summary: Recorded seed differs from baseline behavior and introduced measurable
+    metric divergence.
+  severity: high
+  confidence: 0.91
+suspected_commit: d4e5f6g
+supporting_evidence:
+  accuracy_diff: 0.0667
+  loss_diff: 2.6991
+  divergence: true

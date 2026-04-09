@@ -1,0 +1,4 @@
+divergence: true
+first_bad_commit: d4e5f6g
+commit_message: 'config: altered random seed policy'
+history_size: 5

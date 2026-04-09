@@ -1,0 +1,11 @@
+experiment_id: exp-iris-current
+dataset:
+  name: iris
+  hash: aa06b8008ceba42efc654be0f83fdafc786239c9e8f13146044d078f5aab8f23
+environment:
+  python: '3.11'
+hyperparameters:
+  seed: 12
+results:
+  accuracy: 0.9222
+  loss: 2.8153

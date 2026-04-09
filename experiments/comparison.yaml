@@ -1,0 +1,6 @@
+baseline_experiment: exp-iris-baseline
+current_experiment: exp-iris-current
+threshold: 0.05
+accuracy_diff: 0.0667
+loss_diff: 2.6991
+divergence: true
