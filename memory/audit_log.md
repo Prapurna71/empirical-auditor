@@ -360,3 +360,5 @@ Simulated PR created: repro-failure-branch -> main
 - 2026-04-09T18:35:30.986998+00:00: Root cause analysis started
 - 2026-04-09T18:35:32.912576+00:00: Root cause analysis completed
 - 2026-04-09T18:35:32.938576+00:00: Learned pattern: large metric drops often trace back to hyperparameter shifts.
+- 2026-04-09T18:35:33.049203+00:00: Report generation started
+- 2026-04-09T18:35:33.238520+00:00: Report generated
