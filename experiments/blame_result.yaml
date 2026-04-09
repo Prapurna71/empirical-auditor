@@ -1,21 +1,59 @@
 root_cause:
-  summary: Uncommitted changes in experiment configuration files
+  summary: Changes in experiment configuration files
   category: Experiment Configuration
-  fix: Commit all changes to configuration files before running the experiment, specifically
-    review changes in experiments/baseline.yaml, experiments/current.yaml, and agent.yaml
+  fix: Review and revert changes in experiments/baseline.yaml, experiments/bisect_result.yaml,
+    experiments/blame_result.yaml, experiments/comparison.yaml, experiments/current.yaml,
+    and scripts/run_experiment.py to ensure consistency with the original experiment
+    setup
   source: groq-llm
 llm_explanation:
-  root_cause: Uncommitted changes in experiment configuration files
+  root_cause: Changes in experiment configuration files
   category: Experiment Configuration
-  fix: Commit all changes to configuration files before running the experiment, specifically
-    review changes in experiments/baseline.yaml, experiments/current.yaml, and agent.yaml
-  failure_type: Model instability
-failure_type: Model instability
+  fix: Review and revert changes in experiments/baseline.yaml, experiments/bisect_result.yaml,
+    experiments/blame_result.yaml, experiments/comparison.yaml, experiments/current.yaml,
+    and scripts/run_experiment.py to ensure consistency with the original experiment
+    setup
+  failure_type: Hyperparameter instability
+failure_type: Hyperparameter instability
 attribution:
-  file: experiments/baseline.yaml
+  file: scripts/run_experiment.py
   line: 1
-  change: Detected model instability linked to configuration updates in this file.
-    Seed/metric related values likely changed relative to baseline expectations.
+  change: Detected hyperparameter instability linked to updates impacting seed and
+    metric controls. Git blame and recent diff indicate this location is strongly
+    associated with the observed drift.
+  blame_lines: &id002
+  - ^0a56ebc (Prapurna71 2026-04-09 22:57:13 +0530   8) from sklearn.metrics import
+    accuracy_score, log_loss
+  - '14381566 (Prapurna71 2026-04-09 23:53:43 +0530  34) def demo_metrics(seed: int,
+    raw_accuracy: float, raw_loss: float) -> tuple[float, float]:'
+  - '14381566 (Prapurna71 2026-04-09 23:53:43 +0530  35)     # Deterministic, seed-driven
+    metrics make divergence demos reliable across reruns.'
+  - '14381566 (Prapurna71 2026-04-09 23:53:43 +0530  36)     if seed == 42:'
+  - 14381566 (Prapurna71 2026-04-09 23:53:43 +0530  37)         demo_accuracy = 0.94
+  changed_lines: &id001 []
+git_intelligence:
+  diff:
+    diff_snippet: "diff --git a/experiments/bisect_result.yaml b/experiments/bisect_result.yaml\n\
+      index 45bb058..99419ec 100644\n--- a/experiments/bisect_result.yaml\n+++ b/experiments/bisect_result.yaml\n\
+      @@ -2,7 +2,7 @@ divergence: true\n first_bad_commit: 0a56ebc\n commit_message:\
+      \ 'Initial commit: Empirical Auditor gitagent repository'\n threshold: 0.05\n\
+      -history_size: 17\n+history_size: 26\n inspected:\n - commit: 0a56ebc\n   message:\
+      \ 'Initial commit: Empirical Auditor gitagent repository'\ndiff --git a/memory/audit_log.md\
+      \ b/memory/audit_log.md\nindex 0bafec1..3b08ee9 100644\n--- a/memory/audit_log.md\n\
+      +++ b/memory/audit_log.md\n@@ -293,3 +293,5 @@ Simulated PR created: repro-failure-branch\
+      \ -> main\n - 2026-04-09T18:31:10.699190+00:00: Divergence detection started\n\
+      \ - 2026-04-09T18:31:10.898823+00:00: Divergence detected=True\n - 2026-04-09T18:31:11.178335+00:00:\
+      \ Decision engine: severity=high actions=['bisect', 'blame', 'report', 'pr']\n\
+      +- 2026-04-09T18:31:11.326469+00:00: Bisect simulation started\n+- 2026-04-09T18:31:14.075415+00:00:\
+      \ Bisect completed"
+    affected_parameters: []
+    changed_lines: *id001
+  blame:
+    file: scripts/run_experiment.py
+    line: 1
+    change: Recent edits in experiment execution logic likely altered reproducibility
+      behavior.
+    blame_lines: *id002
 suspected_commit: 0a56ebc
 simulated_diff:
   summary: commit 0a56ebc
