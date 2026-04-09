@@ -1,6 +1,6 @@
 # Replication PR: Reproducibility Failure Investigation
 
-- Created: 2026-04-09T18:17:25.831171+00:00
+- Created: 2026-04-09T18:21:43.434398+00:00
 - Source report: memory/report.md
 - Status: OPEN (simulated)
 - Branch: repro-failure-branch
@@ -18,16 +18,17 @@
 
 # Reproducibility Failure Report
 
-## Executive Summary
+## Summary
 
-| Field | Value |
-|---|---|
-| Status | **FAIL** |
-| Generated At | 2026-04-09 18:17:25 UTC |
-| Baseline Experiment | exp-iris-baseline |
-| Current Experiment | exp-iris-current |
-| Divergence Detected | true |
-| Reproducibility Score | **75/100** |
+Baseline Accuracy: **0.9889**
+
+Current Accuracy: **0.8100**
+
+Change: **-0.1789**
+
+Status: **FAIL ❌**
+
+Generated At: 2026-04-09 18:21:43 UTC
 
 ## Metric Comparison Table
 
@@ -47,35 +48,40 @@ Reproducibility Score: **75/100**
 | Environment Match | 25 |
 | Stable Metrics | 0 |
 
+## Experiment Timeline
+
+- d1b9dba (baseline) -> Accuracy 0.9889 [stable PASS] - pipeline: run completed
+- b4f28ad (intermediate) -> Accuracy 0.9789 [stable PASS] - experiment: new run
+- 4e8e1a5 (intermediate) -> Accuracy 0.9689 [stable PASS] - analysis: divergence detected
+- 40d2ab5 (intermediate) -> Accuracy 0.9589 [stable PASS] - analysis: bisect completed
+- d709124 (intermediate) -> Accuracy 0.9589 [stable PASS] - analysis: root cause generated
+
 ## Root Cause
 
 Uncommitted changes in experiment configuration files
 
-## Suspected Commit
+Suspected Commit: `0a56ebc`
 
-`0a56ebc`
+## Failure Classification
 
-## Recommended Fix
+Model instability
 
-Commit all changes, especially in experiments/baseline.yaml, experiments/current.yaml, and scripts/run_experiment.py, before running the experiment
+## Root Cause Attribution
 
-## Decision
+File: `experiments/baseline.yaml`
 
-Reject reproducibility: divergence exceeds threshold.
+Line: `1`
 
-## Traceability
-
-| Artifact | Value |
-|---|---|
-| Comparison File | experiments/comparison.yaml |
-| Bisect File | experiments/bisect_result.yaml |
-| Blame File | experiments/blame_result.yaml |
-| Reasoning Source | groq-llm |
+Change: Detected model instability linked to configuration updates in this file. Seed/metric related values likely changed relative to baseline expectations.
 
 ## Git Diff
 
 ```diff
 No diff detected between experiments/baseline.yaml and experiments/current.yaml.
 ```
+
+## Recommended Fix
+
+Commit all changes to configuration files before running the experiment, specifically review changes in experiments/baseline.yaml, experiments/current.yaml, and agent.yaml
 
 
