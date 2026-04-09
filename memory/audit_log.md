@@ -133,4 +133,45 @@ PR CREATED
 - 2026-04-09T18:17:25.338087+00:00: Report generation started
 - 2026-04-09T18:17:25.595762+00:00: Report generated
 - 2026-04-09T18:17:25.730994+00:00: PR simulation started
-- 2026-04-09T18:17:25.831171+00:00: Simulated replication PR created.\n
+- 2026-04-09T18:17:25.831171+00:00: Simulated replication PR created.\n- 2026-04-09T18:17:26.102231+00:00: PR simulation completed
+
+## Pipeline Run
+
+- PIPELINE_START: 2026-04-09T18:17:18.237499+00:00
+- BASELINE_TAG_CREATED: baseline-v1
+- [STEP 1] Running experiment
+- 2026-04-09T18:17:18.301028+00:00 [STEP 1] python scripts/run_experiment.py
+- STDOUT:
+Experiment re-run complete: seed=7, accuracy=0.81, loss=0.5225
+- EXIT_CODE: 0
+- [STEP 2] Detecting divergence
+- 2026-04-09T18:17:20.470776+00:00 [STEP 2] python scripts/compare_results.py
+- STDOUT:
+divergence=true
+accuracy_diff=0.1789 threshold=0.05 loss_diff=0.4063
+- EXIT_CODE: 0
+- [STEP 3] Running bisect simulation
+- 2026-04-09T18:17:20.832673+00:00 [STEP 3] python scripts/bisect_simulation.py
+- STDOUT:
+Experiment re-run complete: seed=12, accuracy=0.9222, loss=2.8153
+commit=0a56ebc accuracy_diff=0.0667 status=bad
+first_bad_commit=0a56ebc
+message=Initial commit: Empirical Auditor gitagent repository
+- EXIT_CODE: 0
+- [STEP 4] Running blame analysis
+- 2026-04-09T18:17:23.574916+00:00 [STEP 4] python scripts/blame_analysis.py
+- STDOUT:
+{'root_cause': {'summary': 'Uncommitted changes in experiment configuration files', 'category': 'Experiment Configuration', 'fix': 'Commit all changes, especially in experiments/baseline.yaml, experiments/current.yaml, and scripts/run_experiment.py, before running the experiment', 'source': 'groq-llm'}, 'llm_explanation': {'root_cause': 'Uncommitted changes in experiment configuration files', 'category': 'Experiment Configuration', 'fix': 'Commit all changes, especially in experiments/baseline.yaml, experiments/current.yaml, and scripts/run_experiment.py, before running the experiment'}, 'suspected_commit': '0a56ebc', 'simulated_diff': {'summary': 'commit 0a56ebc', 'changed_files': ['DUTIES.md', 'README.md', 'RULES.md', 'SOUL.md', 'agent.yaml', 'experiments/baseline.yaml', 'experiments/bisect_result.yaml', 'experiments/blame_result.yaml', 'experiments/comparison.yaml', 'experiments/current.yaml', 'knowledge/baseline.md', 'memory/audit_log.md', 'memory/replication_pr.md', 'memory/report.md', 'scripts/bisect_simulation.py', 'scripts/blame_analysis.py', 'scripts/compare_results.py', 'scripts/create_pr.py', 'scripts/generate_report.py', 'scripts/run_experiment.py', 'skills/bisect-failure/SKILL.md', 'skills/blame-root-cause/SKILL.md', 'skills/create-replication-pr/SKILL.md', 'skills/detect-divergence/SKILL.md', 'skills/generate-report/SKILL.md', 'skills/reproduce-experiment/SKILL.md']}, 'supporting_evidence': {'accuracy_diff': 0.1789, 'loss_diff': 0.4063, 'divergence': True}}
+- EXIT_CODE: 0
+- [STEP 5] Generating report
+- 2026-04-09T18:17:25.338087+00:00 [STEP 5] python scripts/generate_report.py
+- STDOUT:
+Report generated at C:\documents\gitagent\empirical-auditor\memory\report.md
+- EXIT_CODE: 0
+- [STEP 6] Creating replication PR
+- 2026-04-09T18:17:25.730994+00:00 [STEP 6] python scripts/create_pr.py
+- STDOUT:
+Simulated PR created: repro-failure-branch -> main
+- EXIT_CODE: 0
+- FINAL_RESULT: SUCCESS
+- PIPELINE_END: 2026-04-09T18:17:26.102231+00:00
