@@ -1,4 +1,10 @@
 divergence: true
-first_bad_commit: d4e5f6g
-commit_message: 'config: altered random seed policy'
-history_size: 5
+first_bad_commit: 0a56ebc
+commit_message: 'Initial commit: Empirical Auditor gitagent repository'
+threshold: 0.05
+history_size: 3
+inspected:
+- commit: 0a56ebc
+  message: 'Initial commit: Empirical Auditor gitagent repository'
+  accuracy_diff: 0.0667
+  good: false
