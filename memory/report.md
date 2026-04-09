@@ -10,7 +10,7 @@ Change: **-0.1789**
 
 Status: **FAIL ❌**
 
-Generated At: 2026-04-09 18:22:56 UTC
+Generated At: 2026-04-09 18:31:17 UTC
 
 ## Metric Comparison Table
 
@@ -33,28 +33,40 @@ Reproducibility Score: **75/100**
 ## Experiment Timeline
 
 - baseline-v1 (baseline) -> Accuracy 0.9889 [stable PASS] - tagged stable baseline
-- 9121add (intermediate) -> Accuracy 0.9789 [stable PASS] - experiment: new run
-- 497809d (intermediate) -> Accuracy 0.9689 [stable PASS] - analysis: divergence detected
-- 1664fa5 (intermediate) -> Accuracy 0.9589 [stable PASS] - analysis: bisect completed
+- 9850788 (intermediate) -> Accuracy 0.9789 [stable PASS] - analysis: divergence detected
+- 373ac21 (intermediate) -> Accuracy 0.9689 [stable PASS] - analysis: adaptive decision computed
+- e3b33a7 (intermediate) -> Accuracy 0.9589 [stable PASS] - analysis: bisect completed
 - 0a56ebc (failure) -> Accuracy 0.8100 [divergent FAIL] - Initial commit: Empirical Auditor gitagent repository
+- First stable commit: baseline-v1
+- First failure commit: 0a56ebc
 
 ## Root Cause
 
-Uncommitted changes in experiment configuration files
+Changes in experiment configuration files
 
 Suspected Commit: `0a56ebc`
 
 ## Failure Classification
 
-Model instability
+Hyperparameter instability
 
 ## Root Cause Attribution
 
-File: `experiments/baseline.yaml`
+File: `scripts/run_experiment.py`
 
 Line: `1`
 
-Change: Detected model instability linked to configuration updates in this file. Seed/metric related values likely changed relative to baseline expectations.
+Change: Detected hyperparameter instability linked to updates impacting seed and metric controls. Git blame and recent diff indicate this location is strongly associated with the observed drift.
+
+## Self-Evaluation
+
+Confidence: **100%**
+
+Reason: divergence is confirmed by threshold comparison; accuracy drop is materially significant; failure type 'Hyperparameter instability' has clear diagnostic criteria; LLM reasoning corroborates rule-based evidence; attribution includes file and line-level localization
+
+## Why This Failure Happened
+
+The run dropped by 0.1789 accuracy points after commit-linked edits in scripts/run_experiment.py:1. This is classified as hyperparameter instability, indicating the execution path or experiment controls changed in a way that altered model behavior under the same audit baseline. Once this drift appears, downstream comparison, bisect, and blame stages all propagate the same failure signal.
 
 ## Git Diff
 
@@ -64,5 +76,5 @@ No diff detected between experiments/baseline.yaml and experiments/current.yaml.
 
 ## Recommended Fix
 
-Commit all changes to configuration files before running the experiment, specifically review changes in experiments/baseline.yaml, experiments/current.yaml, and agent.yaml
+Review and revert changes in experiments/baseline.yaml, experiments/bisect_result.yaml, experiments/blame_result.yaml, experiments/comparison.yaml, experiments/current.yaml, and scripts/run_experiment.py to ensure consistency with the original experiment setup
 
