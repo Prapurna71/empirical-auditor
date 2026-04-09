@@ -1,7 +1,7 @@
 spec_version: "0.1.0"
 name: empirical-auditor
 version: 0.1.0
-description: "Git-native agent that verifies ML experiment reproducibility and detects divergence"
+description: "Forensic reproducibility agent that converts ML failures into git-evidenced root cause reports, first-bad-commit attribution, and replication-ready PR artifacts"
 model:
   preferred: claude-sonnet-4-5-20250929
 skills:

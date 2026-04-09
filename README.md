@@ -110,6 +110,92 @@ gitclaw run .
 python scripts/run_agent.py
 ```
 
+## External Repository Analysis Mode
+
+Use `--repo` to provide the external repository URL directly in the command.
+
+Example:
+
+```bash
+python scripts/run_agent.py --repo https://github.com/Prapurna71/ml-research-demo.git
+```
+
+## ⚠️ Requirements for External Repos
+
+Best results when repository includes:
+- experiment scripts
+- YAML-based outputs
+- reproducible pipelines
+
+Demo repo provided for guaranteed behavior.
+
+## Demo Flow (External Repo)
+
+1. Set the target repository URL:
+
+```bash
+set REPO_URL=https://github.com/Prapurna71/ml-research-demo.git
+```
+
+2. Run analysis on that external repository:
+
+```bash
+python scripts/run_agent.py --repo https://github.com/Prapurna71/ml-research-demo.git
+```
+
+3. Optional: include PR simulation and push to GitHub:
+
+```bash
+python scripts/run_agent.py --repo https://github.com/Prapurna71/ml-research-demo.git --create-pr --push
+```
+
+The `--push` flag automatically pushes the PR branch (`repro-failure-branch`) to GitHub, creating a real PR.
+
+4. Optional: clean temporary clone after run:
+
+```bash
+python scripts/run_agent.py --repo https://github.com/Prapurna71/ml-research-demo.git --cleanup
+```
+
+Combine flags:
+
+```bash
+python scripts/run_agent.py --repo https://github.com/Prapurna71/ml-research-demo.git --create-pr --push --cleanup
+```
+
+This will analyze the external repo, create and push the PR branch, then clean up local workspace.
+
+You can change https://github.com/Prapurna71/ml-research-demo.git to any other public repository and run again to test another project.
+
+Behavior:
+- Clones the target repository into a temporary audit workspace.
+- Injects agent runtime folders (`scripts/`, `experiments/`, `memory/`).
+- Runs the full reproducibility pipeline in the cloned repository.
+- Writes the report to `memory/report.md` inside the cloned repository.
+- Prints the absolute report path at the end.
+
+Optional PR simulation for external mode:
+
+```bash
+python scripts/run_agent.py --repo https://github.com/Prapurna71/ml-research-demo.git --create-pr
+```
+
+Optional cleanup after run:
+
+```bash
+python scripts/run_agent.py --repo https://github.com/Prapurna71/ml-research-demo.git --cleanup
+```
+
+Safety:
+- No automatic push is performed.
+- PR behavior is simulated only when `--create-pr` is explicitly provided in external mode.
+
+## LLM Reasoning and Fallback
+
+- If `GROQ_API_KEY` is configured, the agent uses LLM reasoning for richer root-cause analysis.
+- If no API key is provided, the agent automatically switches to intelligent fallback reasoning.
+- Fallback mode is fully supported and produces the same structured outcome fields (root cause, category, fix, confidence, reasoning steps).
+
 What this command does:
 - Runs experiment and commits results.
 - Compares against baseline from Git tag.
@@ -142,9 +228,3 @@ SUCCESS
 - `memory/replication_pr.md`
 - `memory/audit_log.md`
 
-## Why This Wins Hackathons
-
-- Strong visual story: each step is visible in Git commits.
-- Deterministic demo path: seed-driven divergence simulation.
-- Real debugging narrative: diff + bisect + root-cause explanation.
-- End-to-end automation from run to PR simulation in one command.

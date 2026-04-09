@@ -2,9 +2,12 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import re
+import shutil
 import subprocess
 import sys
+import tempfile
 from datetime import datetime, timezone
 from pathlib import Path
 import yaml
@@ -17,6 +20,7 @@ COMPARISON_FILE = ROOT / "experiments" / "comparison.yaml"
 BASELINE_TAG = "baseline-v1"
 DECISION_FILE = ROOT / "experiments" / "decision.yaml"
 BLAME_FILE = ROOT / "experiments" / "blame_result.yaml"
+EXTERNAL_MODE_ENV = "AUDIT_EXTERNAL_MODE"
 
 
 def timestamp() -> str:
@@ -143,7 +147,7 @@ def append_audit_log(logs: list[str]) -> None:
             handle.write(f"- {line}\n")
 
 
-def fail(logs: list[str], message: str) -> int:
+def fail(logs: list[str], message: str, pr_enabled: bool = True) -> int:
     print(message)
     logs.append(message)
     append_audit_line(message)
@@ -156,7 +160,8 @@ def fail(logs: list[str], message: str) -> int:
             encoding="utf-8",
         )
 
-    run_step("[FAILURE-HANDLER]", "create_pr.py", logs)
+    if pr_enabled:
+        run_step("[FAILURE-HANDLER]", "create_pr.py", logs)
 
     logs.append("FINAL_RESULT: FAILURE")
     append_audit_log(logs)
@@ -181,10 +186,101 @@ def run_decision_engine(logs: list[str], demo: bool) -> dict | None:
         return None
 
 
+def copy_agent_runtime(target_root: Path) -> None:
+    required_paths = ["scripts", "experiments", "memory"]
+    for rel_path in required_paths:
+        src = ROOT / rel_path
+        dst = target_root / rel_path
+        if dst.exists():
+            shutil.rmtree(dst)
+        shutil.copytree(src, dst)
+
+
+def run_external_repo_mode(repo_url: str, create_pr: bool, push: bool, cleanup: bool) -> int:
+    if os.name == "nt":
+        repo_root = Path(tempfile.gettempdir()) / "audit_repo"
+    else:
+        repo_root = Path("/tmp") / "audit_repo"
+
+    if repo_root.exists():
+        shutil.rmtree(repo_root)
+    repo_root.parent.mkdir(parents=True, exist_ok=True)
+
+    print("[INFO] Cloning repository")
+    clone_result = subprocess.run(
+        ["git", "clone", repo_url, "audit_repo"],
+        cwd=repo_root.parent,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if clone_result.returncode != 0:
+        if clone_result.stdout.strip():
+            print(clone_result.stdout.strip())
+        if clone_result.stderr.strip():
+            print(clone_result.stderr.strip())
+        print("[ERROR] Failed to clone external repository")
+        return clone_result.returncode
+
+    copy_agent_runtime(repo_root)
+
+    print("[INFO] Running audit on external repo")
+    command = [sys.executable, str(repo_root / "scripts" / "run_agent.py")]
+    if create_pr:
+        command.append("--create-pr")
+
+    env = os.environ.copy()
+    env[EXTERNAL_MODE_ENV] = "1"
+
+    result = subprocess.run(
+        command,
+        cwd=repo_root,
+        check=False,
+        env=env,
+    )
+
+    report_path = repo_root / "memory" / "report.md"
+    if report_path.exists():
+        print(f"[INFO] Report path: {report_path}")
+
+    if create_pr and push:
+        print("[INFO] Pushing PR branch to GitHub")
+        push_result = subprocess.run(
+            ["git", "push", "origin", "repro-failure-branch"],
+            cwd=repo_root,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        if push_result.returncode == 0:
+            print("[SUCCESS] PR branch pushed to origin")
+        else:
+            if push_result.stdout.strip():
+                print(push_result.stdout.strip())
+            if push_result.stderr.strip():
+                print("[WARNING] Push failed:", push_result.stderr.strip())
+
+    if cleanup:
+        shutil.rmtree(repo_root, ignore_errors=True)
+        print("[INFO] Cleaned up external repository workspace")
+
+    return result.returncode
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="Run adaptive Git-native reproducibility agent")
     parser.add_argument("--demo", action="store_true", help="Force visible divergence demo mode")
+    parser.add_argument("--repo", type=str, default=None, help="Analyze an external git repository URL")
+    parser.add_argument("--create-pr", action="store_true", help="Enable PR simulation for external-repo mode")
+    parser.add_argument("--push", action="store_true", help="Push PR branch to GitHub (requires --create-pr)")
+    parser.add_argument("--cleanup", action="store_true", help="Delete cloned external repo after run")
     args = parser.parse_args()
+
+    external_mode = os.environ.get(EXTERNAL_MODE_ENV) == "1"
+    if args.repo and not external_mode:
+        return run_external_repo_mode(args.repo, args.create_pr, args.push, args.cleanup)
+
+    pr_enabled = (not external_mode) or args.create_pr
 
     logs: list[str] = [f"PIPELINE_START: {timestamp()}"]
     append_audit_line("Pipeline started")
@@ -199,7 +295,7 @@ def main() -> int:
         append_audit_line("Demo mode enabled: forcing seed=7 for visible divergence")
     code, _, _ = run_step("[STEP 1]", "run_experiment.py", logs, extra_args=run_args)
     if code != 0:
-        return fail(logs, "[ERROR] Experiment step failed.")
+        return fail(logs, "[ERROR] Experiment step failed.", pr_enabled=pr_enabled)
     append_audit_line("Experiment completed")
     commit_step("experiment: new run", ["experiments/current.yaml", "memory/audit_log.md"])
 
@@ -208,13 +304,13 @@ def main() -> int:
     append_audit_line("Divergence detection started")
     code, stdout, _ = run_step("[STEP 2]", "compare_results.py", logs)
     if code != 0:
-        return fail(logs, "[ERROR] Divergence check failed.")
+        return fail(logs, "[ERROR] Divergence check failed.", pr_enabled=pr_enabled)
 
     divergence = read_divergence_from_file()
     if divergence is None:
         divergence = extract_divergence(stdout)
     if divergence is None:
-        return fail(logs, "[ERROR] Could not parse divergence output from compare_results.py")
+        return fail(logs, "[ERROR] Could not parse divergence output from compare_results.py", pr_enabled=pr_enabled)
 
     append_audit_line(f"Divergence detected={divergence}")
     commit_step("analysis: divergence detected", ["experiments/comparison.yaml", "memory/audit_log.md"])
@@ -232,7 +328,7 @@ def main() -> int:
 
     decision = run_decision_engine(logs, args.demo)
     if decision is None:
-        return fail(logs, "[ERROR] Decision engine failed to produce valid output.")
+        return fail(logs, "[ERROR] Decision engine failed to produce valid output.", pr_enabled=pr_enabled)
 
     write_decision(decision)
     append_audit_line(
@@ -250,7 +346,7 @@ def main() -> int:
         append_audit_line("Bisect simulation started")
         code, _, _ = run_step("[STEP 3]", "bisect_simulation.py", logs)
         if code != 0:
-            return fail(logs, "[ERROR] Bisect simulation failed.")
+            return fail(logs, "[ERROR] Bisect simulation failed.", pr_enabled=pr_enabled)
         append_audit_line("Bisect completed")
         commit_step("analysis: bisect completed", ["experiments/bisect_result.yaml", "memory/audit_log.md"])
     else:
@@ -262,7 +358,7 @@ def main() -> int:
         append_audit_line("Root cause analysis started")
         code, _, _ = run_step("[STEP 4]", "blame_analysis.py", logs)
         if code != 0:
-            return fail(logs, "[ERROR] Blame analysis failed.")
+            return fail(logs, "[ERROR] Blame analysis failed.", pr_enabled=pr_enabled)
         append_audit_line("Root cause analysis completed")
 
         failure_type = read_blame_failure_type()
@@ -279,20 +375,22 @@ def main() -> int:
         append_audit_line("Report generation started")
         code, _, _ = run_step("[STEP 5]", "generate_report.py", logs)
         if code != 0:
-            return fail(logs, "[ERROR] Report generation failed.")
+            return fail(logs, "[ERROR] Report generation failed.", pr_enabled=pr_enabled)
         append_audit_line("Report generated")
         commit_step("report: reproducibility failure", ["memory/report.md", "memory/audit_log.md"])
     else:
         append_audit_line("Decision engine skipped report generation for this run")
 
-    if "pr" in actions:
+    if "pr" in actions and pr_enabled:
         print("[STEP 6] Creating replication PR")
         logs.append("[STEP 6] Creating replication PR")
         append_audit_line("PR simulation started")
         code, _, _ = run_step("[STEP 6]", "create_pr.py", logs)
         if code != 0:
-            return fail(logs, "[ERROR] PR creation simulation failed.")
+            return fail(logs, "[ERROR] PR creation simulation failed.", pr_enabled=pr_enabled)
         append_audit_line("PR simulation completed")
+    elif "pr" in actions and not pr_enabled:
+        append_audit_line("PR simulation skipped: external mode without --create-pr")
     else:
         append_audit_line("Decision engine skipped PR simulation for this run")
 
