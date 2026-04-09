@@ -1,6 +1,6 @@
 # Replication PR: Reproducibility Failure Investigation
 
-- Created: 2026-04-09T18:21:43.434398+00:00
+- Created: 2026-04-09T18:22:56.679420+00:00
 - Source report: memory/report.md
 - Status: OPEN (simulated)
 - Branch: repro-failure-branch
@@ -28,7 +28,7 @@ Change: **-0.1789**
 
 Status: **FAIL ❌**
 
-Generated At: 2026-04-09 18:21:43 UTC
+Generated At: 2026-04-09 18:22:56 UTC
 
 ## Metric Comparison Table
 
@@ -50,11 +50,11 @@ Reproducibility Score: **75/100**
 
 ## Experiment Timeline
 
-- d1b9dba (baseline) -> Accuracy 0.9889 [stable PASS] - pipeline: run completed
-- b4f28ad (intermediate) -> Accuracy 0.9789 [stable PASS] - experiment: new run
-- 4e8e1a5 (intermediate) -> Accuracy 0.9689 [stable PASS] - analysis: divergence detected
-- 40d2ab5 (intermediate) -> Accuracy 0.9589 [stable PASS] - analysis: bisect completed
-- d709124 (intermediate) -> Accuracy 0.9589 [stable PASS] - analysis: root cause generated
+- baseline-v1 (baseline) -> Accuracy 0.9889 [stable PASS] - tagged stable baseline
+- 9121add (intermediate) -> Accuracy 0.9789 [stable PASS] - experiment: new run
+- 497809d (intermediate) -> Accuracy 0.9689 [stable PASS] - analysis: divergence detected
+- 1664fa5 (intermediate) -> Accuracy 0.9589 [stable PASS] - analysis: bisect completed
+- 0a56ebc (failure) -> Accuracy 0.8100 [divergent FAIL] - Initial commit: Empirical Auditor gitagent repository
 
 ## Root Cause
 
