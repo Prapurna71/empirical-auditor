@@ -1,0 +1,14 @@
+severity: high
+actions:
+- bisect
+- blame
+- report
+- pr
+reasoning: Divergence exceeds 0.05; full forensic analysis is required. Demo mode
+  enabled; forcing visible failure-analysis path.
+metadata:
+  accuracy_diff: 0.1789
+  divergence: true
+  seed: 7
+  dataset_hash_present: true
+  demo: true
