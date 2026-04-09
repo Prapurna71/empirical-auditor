@@ -1,14 +1,21 @@
 root_cause:
   summary: Uncommitted changes in experiment configuration files
   category: Experiment Configuration
-  fix: Commit all changes, especially in experiments/baseline.yaml, experiments/current.yaml,
-    and scripts/run_experiment.py, before running the experiment
+  fix: Commit all changes to configuration files before running the experiment, specifically
+    review changes in experiments/baseline.yaml, experiments/current.yaml, and agent.yaml
   source: groq-llm
 llm_explanation:
   root_cause: Uncommitted changes in experiment configuration files
   category: Experiment Configuration
-  fix: Commit all changes, especially in experiments/baseline.yaml, experiments/current.yaml,
-    and scripts/run_experiment.py, before running the experiment
+  fix: Commit all changes to configuration files before running the experiment, specifically
+    review changes in experiments/baseline.yaml, experiments/current.yaml, and agent.yaml
+  failure_type: Model instability
+failure_type: Model instability
+attribution:
+  file: experiments/baseline.yaml
+  line: 1
+  change: Detected model instability linked to configuration updates in this file.
+    Seed/metric related values likely changed relative to baseline expectations.
 suspected_commit: 0a56ebc
 simulated_diff:
   summary: commit 0a56ebc
