@@ -1,20 +1,21 @@
 root_cause:
   summary: history_size change
   category: Hyperparameter instability
-  fix: Revert history_size change or adjust threshold
+  fix: Revert history_size change or re-tune hyperparameters
   source: groq-llm
-  confidence: 90
+  confidence: 80
   reasoning_steps: &id001
-  - Divergence detected with significant metric differences
-  - Git diff shows history_size change in bisect_result.yaml
-  - No code changes in model or data processing
-  - History size change likely affected model performance
+  - Divergence detected between experiment runs
+  - No changes in dataset (dataset_hash_match=true)
+  - Code changes detected, but only in non-code files and experiment configuration
+  - History size change detected in bisect_result.yaml
+  - History size change likely caused hyperparameter instability
 llm_explanation:
   root_cause: history_size change
   category: Hyperparameter instability
-  fix: Revert history_size change or adjust threshold
+  fix: Revert history_size change or re-tune hyperparameters
   failure_type: Hyperparameter instability
-  confidence: 90
+  confidence: 80
   reasoning_steps: *id001
 failure_type: Hyperparameter instability
 attribution:
@@ -36,17 +37,17 @@ attribution:
 git_intelligence:
   diff:
     diff_snippet: "diff --git a/experiments/bisect_result.yaml b/experiments/bisect_result.yaml\n\
-      index 99419ec..c2bdb9a 100644\n--- a/experiments/bisect_result.yaml\n+++ b/experiments/bisect_result.yaml\n\
+      index c2bdb9a..fd2de52 100644\n--- a/experiments/bisect_result.yaml\n+++ b/experiments/bisect_result.yaml\n\
       @@ -2,7 +2,7 @@ divergence: true\n first_bad_commit: 0a56ebc\n commit_message:\
       \ 'Initial commit: Empirical Auditor gitagent repository'\n threshold: 0.05\n\
-      -history_size: 26\n+history_size: 34\n inspected:\n - commit: 0a56ebc\n   message:\
+      -history_size: 34\n+history_size: 43\n inspected:\n - commit: 0a56ebc\n   message:\
       \ 'Initial commit: Empirical Auditor gitagent repository'\ndiff --git a/memory/audit_log.md\
-      \ b/memory/audit_log.md\nindex 58cbf04..114c7f5 100644\n--- a/memory/audit_log.md\n\
-      +++ b/memory/audit_log.md\n@@ -355,3 +355,5 @@ Simulated PR created: repro-failure-branch\
-      \ -> main\n - 2026-04-09T18:35:27.898295+00:00: Divergence detection started\n\
-      \ - 2026-04-09T18:35:28.062621+00:00: Divergence detected=True\n - 2026-04-09T18:35:28.282163+00:00:\
+      \ b/memory/audit_log.md\nindex 683377d..a259300 100644\n--- a/memory/audit_log.md\n\
+      +++ b/memory/audit_log.md\n@@ -418,3 +418,5 @@ Simulated PR created: repro-failure-branch\
+      \ -> main\n - 2026-04-09T18:59:27.781957+00:00: Divergence detection started\n\
+      \ - 2026-04-09T18:59:27.951485+00:00: Divergence detected=True\n - 2026-04-09T18:59:28.171708+00:00:\
       \ Decision engine: severity=high actions=['bisect', 'blame', 'report', 'pr']\n\
-      +- 2026-04-09T18:35:28.402473+00:00: Bisect simulation started\n+- 2026-04-09T18:35:30.861780+00:00:\
+      +- 2026-04-09T18:59:28.287799+00:00: Bisect simulation started\n+- 2026-04-09T18:59:30.667400+00:00:\
       \ Bisect completed"
     affected_parameters: []
     changed_lines: *id002
