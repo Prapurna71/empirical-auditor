@@ -352,3 +352,5 @@ Simulated PR created: repro-failure-branch -> main
 - 2026-04-09T18:35:25.641965+00:00: Experiment started
 - 2026-04-09T18:35:25.642963+00:00: Demo mode enabled: forcing seed=7 for visible divergence
 - 2026-04-09T18:35:27.782433+00:00: Experiment completed
+- 2026-04-09T18:35:27.898295+00:00: Divergence detection started
+- 2026-04-09T18:35:28.062621+00:00: Divergence detected=True
