@@ -1,4 +1,4 @@
-# Reproducibility Failure Report
+# Reproducibility Audit Report
 
 ## Summary
 
@@ -8,9 +8,9 @@ Current Accuracy: **0.8100**
 
 Change: **-0.1789**
 
-Status: **FAIL ❌**
+Status: **FAIL**
 
-Generated At: 2026-04-09 18:59:32 UTC
+Generated At: 2026-04-10 11:01:18 UTC
 
 ## Metric Comparison Table
 
@@ -33,16 +33,16 @@ Reproducibility Score: **75/100**
 ## Experiment Timeline
 
 - baseline-v1 (baseline) -> Accuracy 0.9889 [stable PASS] - tagged stable baseline
-- 27ace1d (intermediate) -> Accuracy 0.9789 [stable PASS] - analysis: divergence detected
-- 9b1956a (intermediate) -> Accuracy 0.9689 [stable PASS] - analysis: adaptive decision computed
-- f10c512 (intermediate) -> Accuracy 0.9589 [stable PASS] - analysis: bisect completed
+- 3345877 (intermediate) -> Accuracy 0.9789 [stable PASS] - analysis: divergence detected
+- 2fa1d10 (intermediate) -> Accuracy 0.9689 [stable PASS] - analysis: adaptive decision computed
+- 423cb46 (intermediate) -> Accuracy 0.9589 [stable PASS] - analysis: bisect completed
 - 0a56ebc (failure) -> Accuracy 0.8100 [divergent FAIL] - Initial commit: Empirical Auditor gitagent repository
 - First stable commit: baseline-v1
 - First failure commit: 0a56ebc
 
 ## Root Cause
 
-history_size change
+history_size increase
 
 Suspected Commit: `0a56ebc`
 
@@ -76,5 +76,5 @@ No diff detected between experiments/baseline.yaml and experiments/current.yaml.
 
 ## Recommended Fix
 
-Revert history_size change or re-tune hyperparameters
+Revert history_size change or adjust threshold
 
