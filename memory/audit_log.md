@@ -536,3 +536,8 @@ Simulated PR created: repro-failure-branch -> main
 - EXIT_CODE: 0
 - FINAL_RESULT: SUCCESS
 - PIPELINE_END: 2026-04-10T11:01:19.596878+00:00
+- 2026-04-10T11:02:50.736917+00:00: Pipeline started
+- 2026-04-10T11:02:50.796693+00:00: Baseline tag already exists: baseline-v1
+- 2026-04-10T11:02:50.797300+00:00: Experiment started
+- 2026-04-10T11:02:50.798315+00:00: Demo mode enabled: forcing seed=7 for visible divergence
+- 2026-04-10T11:02:53.831046+00:00: Experiment completed
