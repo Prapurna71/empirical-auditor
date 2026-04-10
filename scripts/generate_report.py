@@ -196,11 +196,6 @@ def main() -> None:
     suspected_commit = bisect_result.get("first_bad_commit") or "None"
     generated_at = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
     change_delta = current_acc - baseline_acc
-    decision_text = (
-        "Reject reproducibility: divergence exceeds threshold."
-        if divergence
-        else "Approve reproducibility: metrics remain within threshold."
-    )
     status_badge = "FAIL" if divergence else "PASS"
     commits = get_recent_commits(limit=5)
     timeline = build_timeline(commits, bisect_result, baseline_acc, current_acc)
@@ -214,7 +209,7 @@ def main() -> None:
     )
     anomaly_explanation = build_anomaly_explanation(str(failure_type), change_delta, attribution)
 
-    report = f"""# Reproducibility Failure Report
+    report = f"""# Reproducibility Audit Report
 
 ## Summary
 
@@ -224,7 +219,7 @@ Current Accuracy: **{current_acc:.4f}**
 
 Change: **{change_delta:+.4f}**
 
-Status: **{status_badge}{' ❌' if divergence else ''}**
+Status: **{status_badge}**
 
 Generated At: {generated_at}
 

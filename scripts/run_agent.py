@@ -155,7 +155,7 @@ def fail(logs: list[str], message: str, pr_enabled: bool = True) -> int:
     if not REPORT_FILE.exists():
         REPORT_FILE.parent.mkdir(parents=True, exist_ok=True)
         REPORT_FILE.write_text(
-            "# Reproducibility Failure Report\n\n"
+            "# Reproducibility Audit Report\n\n"
             "Pipeline failed before full report generation.\n",
             encoding="utf-8",
         )
@@ -186,6 +186,56 @@ def run_decision_engine(logs: list[str], demo: bool) -> dict | None:
         return None
 
 
+def read_yaml_if_exists(path: Path) -> dict:
+    if not path.exists():
+        return {}
+    data = yaml.safe_load(path.read_text(encoding="utf-8"))
+    if isinstance(data, dict):
+        return data
+    return {}
+
+
+def print_final_verdict(divergence: bool, branch_created: bool) -> None:
+    baseline = read_yaml_if_exists(ROOT / "experiments" / "baseline.yaml")
+    current = read_yaml_if_exists(ROOT / "experiments" / "current.yaml")
+    blame = read_yaml_if_exists(BLAME_FILE)
+
+    baseline_acc = float(baseline.get("results", {}).get("accuracy", 0.0))
+    current_acc = float(current.get("results", {}).get("accuracy", 0.0))
+    root_cause = str(blame.get("root_cause", {}).get("summary", "No root cause identified."))
+    recommended_fix = str(blame.get("root_cause", {}).get("fix", "No fix recommendation available."))
+
+    print("====================================")
+    print("FINAL VERDICT")
+    print("=============")
+    print("")
+    if divergence:
+        print("Status: ❌ REPRODUCIBILITY FAILURE DETECTED")
+        print("")
+        print(f"Baseline Accuracy: {baseline_acc:.4f}")
+        print(f"Current Accuracy: {current_acc:.4f}")
+        print("")
+        print(f"Root Cause: {root_cause}")
+        print("")
+        print(f"Recommended Fix: {recommended_fix}")
+        print("")
+        print("Report Location:")
+        print("memory/report.md")
+        print("")
+        print("Branch:")
+        print("repro-failure-branch (created)" if branch_created else "Not created (PR disabled)")
+    else:
+        print("Status: ✅ REPRODUCIBLE")
+        print("")
+        print(f"Baseline Accuracy: {baseline_acc:.4f}")
+        print(f"Current Accuracy: {current_acc:.4f}")
+        print("")
+        print("Report Location:")
+        print("memory/report.md")
+    print("")
+    print("====================================")
+
+
 def copy_agent_runtime(target_root: Path) -> None:
     required_paths = ["scripts", "experiments", "memory"]
     for rel_path in required_paths:
@@ -206,6 +256,8 @@ def run_external_repo_mode(repo_url: str, create_pr: bool, push: bool, cleanup: 
         shutil.rmtree(repo_root)
     repo_root.parent.mkdir(parents=True, exist_ok=True)
 
+    sidecar_root = repo_root / ".empirical-auditor"
+
     print("[INFO] Cloning repository")
     clone_result = subprocess.run(
         ["git", "clone", repo_url, "audit_repo"],
@@ -222,10 +274,11 @@ def run_external_repo_mode(repo_url: str, create_pr: bool, push: bool, cleanup: 
         print("[ERROR] Failed to clone external repository")
         return clone_result.returncode
 
-    copy_agent_runtime(repo_root)
+    copy_agent_runtime(sidecar_root)
 
     print("[INFO] Running audit on external repo")
-    command = [sys.executable, str(repo_root / "scripts" / "run_agent.py")]
+    print("[INFO] Using isolated sidecar environment: .empirical-auditor/")
+    command = [sys.executable, str(sidecar_root / "scripts" / "run_agent.py")]
     if create_pr:
         command.append("--create-pr")
 
@@ -234,12 +287,12 @@ def run_external_repo_mode(repo_url: str, create_pr: bool, push: bool, cleanup: 
 
     result = subprocess.run(
         command,
-        cwd=repo_root,
+        cwd=sidecar_root,
         check=False,
         env=env,
     )
 
-    report_path = repo_root / "memory" / "report.md"
+    report_path = sidecar_root / "memory" / "report.md"
     if report_path.exists():
         print(f"[INFO] Report path: {report_path}")
 
@@ -323,6 +376,7 @@ def main() -> int:
         logs.append("FINAL_RESULT: SUCCESS")
         append_audit_log(logs)
         commit_step("analysis: no divergence", ["memory/audit_log.md"])
+        print_final_verdict(divergence=False, branch_created=False)
         print("SUCCESS")
         return 0
 
@@ -331,6 +385,18 @@ def main() -> int:
         return fail(logs, "[ERROR] Decision engine failed to produce valid output.", pr_enabled=pr_enabled)
 
     write_decision(decision)
+    severity = str(decision.get("severity", "unknown")).lower()
+    actions = decision.get("actions", []) if isinstance(decision.get("actions"), list) else []
+    action_text = " + ".join([str(action) for action in actions]) if actions else "none"
+    print("[AGENT] Decision Summary:")
+    print(f"* Severity: {severity}")
+    print(f"* Actions: {actions}")
+    if severity == "high":
+        print(f"[AGENT] Decision: High severity detected -> running {action_text} with Git evidence")
+    elif severity == "medium":
+        print(f"[AGENT] Decision: Medium severity detected -> running {action_text} with targeted analysis")
+    else:
+        print(f"[AGENT] Decision: Low severity detected -> running {action_text} with minimal audit path")
     append_audit_line(
         f"Decision engine: severity={decision.get('severity')} actions={decision.get('actions')}"
     )
@@ -339,6 +405,7 @@ def main() -> int:
     actions = decision.get("actions", []) if isinstance(decision, dict) else []
     if not isinstance(actions, list):
         actions = []
+    branch_created = False
 
     if "bisect" in actions:
         print("[STEP 3] Running bisect simulation")
@@ -382,8 +449,9 @@ def main() -> int:
         append_audit_line("Decision engine skipped report generation for this run")
 
     if "pr" in actions and pr_enabled:
-        print("[STEP 6] Creating replication PR")
-        logs.append("[STEP 6] Creating replication PR")
+        branch_created = True
+        print("[STEP 6] Creating analysis branch for human review")
+        logs.append("[STEP 6] Creating analysis branch for human review")
         append_audit_line("PR simulation started")
         code, _, _ = run_step("[STEP 6]", "create_pr.py", logs)
         if code != 0:
@@ -398,6 +466,7 @@ def main() -> int:
     logs.append(f"PIPELINE_END: {timestamp()}")
     append_audit_log(logs)
     commit_step("pipeline: run completed", ["memory/audit_log.md", "memory/replication_pr.md"])
+    print_final_verdict(divergence=True, branch_created=branch_created)
     print("SUCCESS")
     return 0
 

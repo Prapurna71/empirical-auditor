@@ -182,6 +182,91 @@ def normalize_category(category: str) -> str:
     return "Code regression"
 
 
+def enrich_explanation_text(explanation: dict, metrics: dict, current: dict, baseline: dict, diff_text: str) -> dict:
+    category = str(explanation.get("category", "Code regression"))
+    root_cause = str(explanation.get("root_cause", "")).strip()
+    fix = str(explanation.get("fix", "")).strip()
+
+    baseline_acc = float(baseline.get("results", {}).get("accuracy", 0.0))
+    current_acc = float(current.get("results", {}).get("accuracy", 0.0))
+    accuracy_drop = float(metrics.get("accuracy_drop", 0.0))
+    loss_increase = float(metrics.get("loss_increase", 0.0))
+    dataset_hash_match = bool(metrics.get("dataset_hash_match", True))
+
+    diff_lower = diff_text.lower()
+    seed_related = any(token in diff_lower for token in ["seed", "random_state", "shuffle", "random"])
+    history_related = "history_size" in diff_lower
+    pipeline_related = any(token in diff_lower for token in ["dataset", "preprocess", "pipeline", "split"])
+
+    if category == "Hyperparameter instability":
+        if history_related:
+            root_cause = (
+                "Change in experiment configuration altered evaluation consistency, leading to unstable accuracy measurements "
+                f"(baseline {baseline_acc:.4f} -> current {current_acc:.4f})."
+            )
+            fix = (
+                "Ensure a consistent experiment configuration for metric aggregation, or revert the recent change affecting evaluation; "
+                "then rerun baseline and current with identical seed, split, and pipeline settings."
+            )
+        elif seed_related:
+            root_cause = (
+                "Hyperparameter changes interacted with seed/randomness controls, producing unstable optimization behavior "
+                f"and measurable metric drift (accuracy drop {accuracy_drop:.4f}, loss increase {loss_increase:.4f})."
+            )
+            fix = (
+                "Revert the unstable hyperparameter update, lock seed and random_state values, and validate with repeated runs "
+                "under identical train/test split conditions."
+            )
+        else:
+            root_cause = (
+                "Recent training-configuration changes likely destabilized evaluation consistency, causing reproducibility drift "
+                f"from {baseline_acc:.4f} to {current_acc:.4f} accuracy, especially under repeated runs with the same data path."
+            )
+            fix = (
+                "Restore prior stable hyperparameters and re-run controlled experiments with fixed seed, unchanged data pipeline, "
+                "and version-locked environment settings."
+            )
+    elif category == "Non-determinism":
+        root_cause = (
+            "Seed and randomness handling changed, introducing non-deterministic behavior so repeated runs no longer follow a "
+            "stable evaluation path."
+        )
+        fix = (
+            "Set explicit seed and random_state values across training, splitting, and shuffling steps, and enforce deterministic "
+            "execution in the data pipeline before revalidation."
+        )
+    elif category == "Data drift":
+        root_cause = (
+            "Data pipeline consistency appears broken, which can shift feature distributions and invalidate baseline comparability."
+        )
+        fix = (
+            "Restore dataset hash parity and lock preprocessing/data-split versions so baseline and current runs consume identical "
+            "inputs end-to-end."
+        )
+    elif category == "Code regression":
+        if seed_related or pipeline_related:
+            root_cause = (
+                "Code-level changes around seed/randomness or data pipeline flow likely modified evaluation conditions, causing drift "
+                f"(accuracy delta {accuracy_drop:.4f})."
+            )
+            fix = (
+                "Revert the suspect commit and reapply changes incrementally while preserving seed controls, data pipeline invariants, "
+                "and deterministic split configuration."
+            )
+        else:
+            root_cause = (
+                "A recent code regression changed experiment behavior enough to break reproducibility against the tagged baseline."
+            )
+            fix = "Revert to the last known-good revision and validate each subsequent change with the reproducibility gate."
+
+    if not dataset_hash_match and "dataset" not in root_cause.lower():
+        root_cause = f"{root_cause} Dataset hash mismatch also indicates potential data-pipeline drift."
+
+    explanation["root_cause"] = root_cause
+    explanation["fix"] = fix
+    return explanation
+
+
 def intelligent_fallback_analysis(diff_text: str, metrics: dict) -> dict:
     diff_signals = parse_diff_signals(diff_text)
     context = build_reasoning_context(diff_signals, metrics)
@@ -549,6 +634,7 @@ def main() -> None:
         explanation = intelligent_fallback_analysis(diff_text, metrics)
 
     explanation["category"] = normalize_category(str(explanation.get("category", "Code regression")))
+    explanation = enrich_explanation_text(explanation, metrics, current, baseline, diff_text)
     failure_type = explanation["category"]
     attribution = build_attribution(changes, failure_type, blame_info, diff_info)
 

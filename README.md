@@ -1,72 +1,134 @@
-# Empirical Auditor - Scientific Reproducibility Agent
+# Empirical Auditor
 
-Empirical Auditor is a fully Git-native AI agent that treats Git history as the source of truth for ML reproducibility decisions.
+Machine learning experiments often fail to reproduce.
 
-## What This Agent Is For
+A small change in code, data loading, or hyperparameters can silently break results - and debugging this can take hours or even days.
 
-This agent is useful when you need to answer a reproducibility failure with evidence instead of guesses.
-It does not just say that a run changed; it shows what changed, where it changed, and what the likely fix is.
-
-In practice, it helps you:
-- reproduce an experiment
-- detect metric drift
-- identify the first bad commit or likely source change
-- generate a readable report with a short solution summary
-- create a branch-based audit trail for review
-
-## Why This Matters
-
-The reproducibility crisis in ML happens when teams cannot answer simple questions with evidence:
-- Which exact experiment configuration produced the reported metric?
-- When did the drift start?
-- What change introduced the failure?
-
-Empirical Auditor addresses this by converting every stage of the audit process into versioned Git artifacts and commits.
-
-## Git-Native Core
-
-Git is used as the runtime memory and audit database:
-- Every pipeline step writes files and creates a commit.
-- Baseline comparisons use a Git tag (`baseline-v1`).
-- Divergence analysis uses `git log`, `git checkout`, and commit-level replay.
-- Reports include real `git diff` evidence.
-- Failure handling creates a PR branch simulation.
+Empirical Auditor is a Git-native AI agent that automatically detects reproducibility failures, identifies the exact commit that caused them, and explains why they happened - in seconds.
 
 ## How It Works
 
-The agent runs as a Git-backed pipeline:
-1. Re-run the experiment.
-2. Compare current metrics with the baseline.
-3. If divergence exists, run bisect and blame analysis.
-4. Generate a report with root cause, confidence, and recommended fix.
-5. Optionally create and push a branch for review.
+1. Runs an experiment and compares results with a baseline.
+2. Detects divergence beyond the configured threshold.
+3. Uses Git history - diff, blame, and bisect - to find the breaking commit.
+4. Generates a detailed audit report with root cause and recommended fix.
 
-The output is designed to be easy to inspect in Git, in the report file, and in the terminal logs.
+Instead of manually debugging across commits, logs, and configurations, the agent turns Git into a forensic system for ML experiments.
 
-## Architecture Diagram (Text)
+## Why This Is Useful
 
+This helps ML teams quickly answer the questions that matter most:
+- What changed?
+- When did it break?
+- Why did it break?
+- What should we do next?
+
+## What Makes It Unique
+
+- Git-native audit trail: commits become experiment history.
+- Root cause analysis, not just failure detection.
+- Human-in-the-loop workflow via a PR-ready branch.
+- Works locally, in CI, or on external repositories.
+
+## Why This Is an Intelligent Agent
+
+The agent does not follow a fixed pipeline blindly.
+It evaluates divergence severity, selects analysis strategies like bisect and blame, and produces causal explanations based on Git evidence and experiment signals.
+
+## Architecture
+
+Empirical Auditor is organized as a Git-driven analysis loop:
+
+1. `scripts/run_agent.py` orchestrates the workflow.
+2. `scripts/run_experiment.py` writes current experiment results.
+3. `scripts/compare_results.py` compares current results against the baseline.
+4. `scripts/decision_engine.py` chooses the next analysis steps.
+5. `scripts/bisect_simulation.py` finds the first bad commit.
+6. `scripts/blame_analysis.py` explains why the failure happened.
+7. `scripts/generate_report.py` writes the audit report.
+8. `scripts/create_pr.py` prepares the PR-ready analysis branch.
+
+Git is the memory layer, the audit trail, and the source of truth.
+
+## 🚀 Run in 10 Seconds
+
+```bash
+git clone <repo_url>
+cd empirical-auditor
+
+pip install -r requirements.txt
+
+python scripts/run_agent.py --demo
 ```
-python scripts/run_agent.py
-  -> [Step 1] run_experiment.py
-     -> commit: experiment: new run
-  -> [Step 2] compare_results.py
-     -> baseline source: git show baseline-v1:experiments/baseline.yaml
-     -> commit: analysis: divergence detected / analysis: no divergence
-  -> if divergence:
-     -> [Step 3] bisect_simulation.py
-        -> commit: analysis: bisect completed
-     -> [Step 4] blame_analysis.py (Groq + fallback)
-        -> commit: analysis: root cause generated
-     -> [Step 5] generate_report.py (includes Git diff)
-        -> commit: report: reproducibility failure
-     -> [Step 6] create_pr.py
-        -> branch: repro-failure-branch
-        -> commit: Reproducibility failure report
+
+## What You Will See
+
+- Experiment run and divergence detection
+- Agent decision-making process
+- Root cause identification using Git
+- Reproducibility audit report
+- PR-ready branch with analysis
+
+## PR Workflow
+
+The agent creates a PR-ready branch containing:
+- reproducibility audit report
+- root cause analysis
+- recommended fix
+
+No source code is modified automatically. Human review is required.
+
+## External Repository Analysis
+
+The agent can audit any Git repository:
+
+```bash
+python scripts/run_agent.py --repo <repo_url>
 ```
+
+Analysis runs in an isolated environment without modifying the original repository.
+
+## External Demo Repository
+
+For the judge demo, use this repository URL:
+
+```bash
+https://github.com/Prapurna71/ml-research-demo.git
+```
+
+Run the external-repo analysis with:
+
+```bash
+python scripts/run_agent.py --repo https://github.com/Prapurna71/ml-research-demo.git --create-pr --push
+```
+
+This produces a PR-ready analysis branch and a reproducibility audit report.
+
+To test a different repository, replace the URL after `--repo`:
+
+```bash
+python scripts/run_agent.py --repo <your_repo_url> --create-pr --push
+```
+
+You can also use only the analysis mode without PR creation:
+
+```bash
+python scripts/run_agent.py --repo <your_repo_url>
+```
+
+## Note
+
+This project uses controlled experiment setups to simulate realistic reproducibility failures in ML workflows.
+
+## Modes
+
+- Demo Mode: Controlled reproducibility failure for quick testing.
+- Local Mode: Runs on the current repository.
+- External Mode: Audits any Git repository in an isolated environment.
 
 ## Setup
 
-1. Create and activate environment:
+1. Create and activate the environment:
 
 ```bash
 conda create -n gitagent-env python=3.11 -y
@@ -76,182 +138,21 @@ conda activate gitagent-env
 2. Install dependencies:
 
 ```bash
-pip install pyyaml scikit-learn groq
+pip install -r requirements.txt
 ```
 
-3. Configure LLM key (optional but recommended):
+3. Configure the optional LLM key:
 
 ```bash
 copy .env.example .env
 ```
 
-Set `GROQ_API_KEY` in `.env`.
+Set `GROQ_API_KEY` in `.env` for richer reasoning. If no API key is provided, the agent uses intelligent fallback reasoning.
 
-## Validate Gitagent Spec
+## Validate GitAgent Spec
 
 ```bash
 npx -y @open-gitagent/gitagent validate
-```
-
-Current status:
-- agent.yaml valid
-- SOUL.md valid
-- skills/ valid
-- validator warnings: 0
-
-## Hackathon Compliance Checklist
-
-This repository is aligned to hackathon-critical Skills + Rules requirements.
-
-- Skills are declared in agent.yaml and exist as six kebab-case folders under skills/.
-- Each skill has valid frontmatter (name + description + allowed-tools) and a concrete executable instruction.
-- Rules are codified in RULES.md and enforced by runtime checks:
-   - missing seed is blocked
-   - missing dataset hash is blocked
-   - divergence threshold is enforced at 0.05
-   - divergent runs trigger forensic path (bisect, blame, report, PR simulation)
-- Identity and policy docs are present and validated:
-   - SOUL.md
-   - DUTIES.md
-   - RULES.md
-
-Enforcement evidence in scripts:
-- scripts/run_experiment.py raises policy violation when hyperparameters.seed is missing.
-- scripts/compare_results.py raises policy violations for missing seed or dataset hash and applies threshold 0.05.
-- scripts/run_agent.py executes adaptive failure workflow when divergence is detected.
-- scripts/blame_analysis.py outputs structured root-cause reasoning with confidence and reasoning steps.
-
-## Run With Gitclaw
-
-```bash
-gitclaw run .
-```
-
-## One-Command Demo
-
-```bash
-python scripts/run_agent.py
-```
-
-## External Repository Analysis Mode
-
-Use `--repo` to provide the external repository URL directly in the command.
-
-Example:
-
-```bash
-python scripts/run_agent.py --repo https://github.com/Prapurna71/ml-research-demo.git
-```
-
-## ⚠️ Requirements for External Repos
-
-Best results when repository includes:
-- experiment scripts
-- YAML-based outputs
-- reproducible pipelines
-
-Demo repo provided for guaranteed behavior.
-
-## Demo Flow (External Repo)
-
-1. Set the target repository URL:
-
-```bash
-set REPO_URL=https://github.com/Prapurna71/ml-research-demo.git
-```
-
-2. Run analysis on that external repository:
-
-```bash
-python scripts/run_agent.py --repo https://github.com/Prapurna71/ml-research-demo.git
-```
-
-3. Optional: include PR simulation and push to GitHub:
-
-```bash
-python scripts/run_agent.py --repo https://github.com/Prapurna71/ml-research-demo.git --create-pr --push
-```
-
-The `--push` flag automatically pushes the PR branch (`repro-failure-branch`) to GitHub, creating a real PR.
-
-4. Optional: clean temporary clone after run:
-
-```bash
-python scripts/run_agent.py --repo https://github.com/Prapurna71/ml-research-demo.git --cleanup
-```
-
-Combine flags:
-
-```bash
-python scripts/run_agent.py --repo https://github.com/Prapurna71/ml-research-demo.git --create-pr --push --cleanup
-```
-
-This will analyze the external repo, create and push the PR branch, then clean up local workspace.
-
-You can change https://github.com/Prapurna71/ml-research-demo.git to any other public repository and run again to test another project.
-
-Behavior:
-- Clones the target repository into a temporary audit workspace.
-- Injects agent runtime folders (`scripts/`, `experiments/`, `memory/`).
-- Runs the full reproducibility pipeline in the cloned repository.
-- Writes the report to `memory/report.md` inside the cloned repository.
-- Prints the absolute report path at the end.
-
-Optional PR simulation for external mode:
-
-```bash
-python scripts/run_agent.py --repo https://github.com/Prapurna71/ml-research-demo.git --create-pr
-```
-
-Optional cleanup after run:
-
-```bash
-python scripts/run_agent.py --repo https://github.com/Prapurna71/ml-research-demo.git --cleanup
-```
-
-Safety:
-- No automatic push is performed.
-- PR behavior is simulated only when `--create-pr` is explicitly provided in external mode.
-
-## LLM Reasoning and Fallback
-
-- If `GROQ_API_KEY` is configured, the agent uses LLM reasoning for deeper root-cause analysis and better explanation quality.
-- If no API key is provided, the agent automatically switches to intelligent fallback reasoning.
-- Fallback mode is fully supported and still produces the same structured fields: root cause, category, fix, confidence, and reasoning steps.
-- In both modes, the agent still generates the audit report and solution summary.
-
-## What the Results Show
-
-The report and console output are meant to answer these questions quickly:
-- What failed: the metric difference and divergence status.
-- When it failed: the pipeline order and timeline of actions.
-- Why it failed: the root-cause summary and reasoning steps.
-- What to do: the recommended fix or solution path.
-
-The report also includes a short confidence score and a readable explanation, so judges can see both the summary and the proposed solution at a glance.
-
-## Local Demo Flow
-
-What this command does:
-- Runs experiment and commits results.
-- Compares against baseline from Git tag.
-- Detects divergence and stops early if stable.
-- If divergent, runs bisect + root cause reasoning + report + PR branch simulation.
-- Appends live logs to `memory/audit_log.md`.
-
-## Sample Output
-
-```text
-[STEP 1] Running experiment
-[STEP 2] Detecting divergence
-divergence=true
-[STEP 3] Running bisect simulation
-first_bad_commit=<hash>
-[STEP 4] Running blame analysis
-[STEP 5] Generating report
-[STEP 6] Creating replication PR
-Simulated PR created: repro-failure-branch -> main
-SUCCESS
 ```
 
 ## Demo Artifacts
@@ -264,3 +165,6 @@ SUCCESS
 - `memory/replication_pr.md`
 - `memory/audit_log.md`
 
+## License
+
+See the repository for licensing details.

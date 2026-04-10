@@ -26,13 +26,13 @@ def main() -> None:
     now = datetime.now(timezone.utc).isoformat()
 
     report_text = REPORT_FILE.read_text(encoding="utf-8")
-    title = "Replication PR: Reproducibility Failure Investigation"
+    title = "Analysis Branch: Reproducibility Failure Investigation"
 
     pr_text = (
         f"# {title}\n\n"
         f"- Created: {now}\n"
         f"- Source report: memory/report.md\n"
-        f"- Status: OPEN (simulated)\n"
+        f"- Status: OPEN (simulated analysis branch)\n"
         f"- Branch: {PR_BRANCH}\n"
         "- Target: main\n\n"
         "## Included Artifacts\n\n"
@@ -59,7 +59,7 @@ def main() -> None:
     run_git(["add", "memory/report.md", "memory/replication_pr.md", "memory/audit_log.md"], check=False)
     run_git(["commit", "--allow-empty", "-m", "Reproducibility failure report"], check=False)
 
-    print("Simulated PR created: repro-failure-branch -> main")
+    print("Simulated PR created: repro-failure-branch -> main (analysis-only, no code changes)")
 
 
 if __name__ == "__main__":
