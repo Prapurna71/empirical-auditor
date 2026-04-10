@@ -2,7 +2,7 @@ divergence: true
 first_bad_commit: 0a56ebc
 commit_message: 'Initial commit: Empirical Auditor gitagent repository'
 threshold: 0.05
-history_size: 43
+history_size: 53
 inspected:
 - commit: 0a56ebc
   message: 'Initial commit: Empirical Auditor gitagent repository'
