@@ -10,7 +10,7 @@ Change: **-0.1789**
 
 Status: **FAIL**
 
-Generated At: 2026-04-10 11:03:01 UTC
+Generated At: 2026-04-10 11:22:39 UTC
 
 ## Metric Comparison Table
 
@@ -33,16 +33,16 @@ Reproducibility Score: **75/100**
 ## Experiment Timeline
 
 - baseline-v1 (baseline) -> Accuracy 0.9889 [stable PASS] - tagged stable baseline
-- e57fcee (intermediate) -> Accuracy 0.9789 [stable PASS] - analysis: divergence detected
-- baecb4b (intermediate) -> Accuracy 0.9689 [stable PASS] - analysis: adaptive decision computed
-- e5994a1 (intermediate) -> Accuracy 0.9589 [stable PASS] - analysis: bisect completed
+- a1b8ddd (intermediate) -> Accuracy 0.9789 [stable PASS] - analysis: divergence detected
+- bdb7d79 (intermediate) -> Accuracy 0.9689 [stable PASS] - analysis: adaptive decision computed
+- 2d9473e (intermediate) -> Accuracy 0.9589 [stable PASS] - analysis: bisect completed
 - 0a56ebc (failure) -> Accuracy 0.8100 [divergent FAIL] - Initial commit: Empirical Auditor gitagent repository
 - First stable commit: baseline-v1
 - First failure commit: 0a56ebc
 
 ## Root Cause
 
-history_size change
+Change in experiment configuration altered evaluation consistency, leading to unstable accuracy measurements (baseline 0.9889 -> current 0.8100).
 
 Suspected Commit: `0a56ebc`
 
@@ -76,5 +76,5 @@ No diff detected between experiments/baseline.yaml and experiments/current.yaml.
 
 ## Recommended Fix
 
-Revert history_size change or retrain with new history_size
+Ensure a consistent experiment configuration for metric aggregation, or revert the recent change affecting evaluation; then rerun baseline and current with identical seed, split, and pipeline settings.
 
