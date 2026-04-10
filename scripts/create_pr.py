@@ -1,12 +1,14 @@
 from datetime import datetime, timezone
+import os
 from pathlib import Path
 import subprocess
+import time
 
 ROOT = Path(__file__).resolve().parents[1]
 REPORT_FILE = ROOT / "memory" / "report.md"
 AUDIT_LOG = ROOT / "memory" / "audit_log.md"
 PR_FILE = ROOT / "memory" / "replication_pr.md"
-PR_BRANCH = "repro-failure-branch"
+PR_BRANCH_ENV = "AUDIT_PR_BRANCH"
 
 
 def run_git(args: list[str], check: bool = True) -> subprocess.CompletedProcess[str]:
@@ -24,6 +26,7 @@ def main() -> None:
         raise FileNotFoundError("Report missing: run scripts/generate_report.py first")
 
     now = datetime.now(timezone.utc).isoformat()
+    branch_name = os.environ.get(PR_BRANCH_ENV, f"repro-failure-{int(time.time())}")
 
     report_text = REPORT_FILE.read_text(encoding="utf-8")
     title = "Analysis Branch: Reproducibility Failure Investigation"
@@ -33,7 +36,7 @@ def main() -> None:
         f"- Created: {now}\n"
         f"- Source report: memory/report.md\n"
         f"- Status: OPEN (simulated analysis branch)\n"
-        f"- Branch: {PR_BRANCH}\n"
+        f"- Branch: {branch_name}\n"
         "- Target: main\n\n"
         "## Included Artifacts\n\n"
         "- experiments/current.yaml\n"
@@ -47,19 +50,19 @@ def main() -> None:
 
     PR_FILE.write_text(pr_text, encoding="utf-8")
 
-    existing = run_git(["branch", "--list", PR_BRANCH], check=False).stdout.strip()
+    existing = run_git(["branch", "--list", branch_name], check=False).stdout.strip()
     if existing:
-        run_git(["checkout", PR_BRANCH], check=False)
+        run_git(["checkout", branch_name], check=False)
     else:
-        run_git(["checkout", "-b", PR_BRANCH], check=True)
+        run_git(["checkout", "-b", branch_name], check=True)
 
     with AUDIT_LOG.open("a", encoding="utf-8") as handle:
-        handle.write(f"- {now}: Simulated replication PR created.\\n")
+        handle.write(f"- {now}: Simulated analysis branch created: {branch_name}.\\n")
 
     run_git(["add", "memory/report.md", "memory/replication_pr.md", "memory/audit_log.md"], check=False)
     run_git(["commit", "--allow-empty", "-m", "Reproducibility failure report"], check=False)
 
-    print("Simulated PR created: repro-failure-branch -> main (analysis-only, no code changes)")
+    print(f"Simulated PR created: {branch_name} -> main (analysis-only, no code changes)")
 
 
 if __name__ == "__main__":
