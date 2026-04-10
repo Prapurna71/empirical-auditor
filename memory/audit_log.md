@@ -543,3 +543,4 @@ Simulated PR created: repro-failure-branch -> main
 - 2026-04-10T11:02:53.831046+00:00: Experiment completed
 - 2026-04-10T11:02:53.997193+00:00: Divergence detection started
 - 2026-04-10T11:02:54.261743+00:00: Divergence detected=True
+- 2026-04-10T11:02:54.588690+00:00: Decision engine: severity=high actions=['bisect', 'blame', 'report', 'pr']
