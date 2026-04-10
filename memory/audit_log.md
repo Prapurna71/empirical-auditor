@@ -483,3 +483,6 @@ Simulated PR created: repro-failure-branch -> main
 - 2026-04-10T11:01:11.331057+00:00: Decision engine: severity=high actions=['bisect', 'blame', 'report', 'pr']
 - 2026-04-10T11:01:11.534121+00:00: Bisect simulation started
 - 2026-04-10T11:01:15.590251+00:00: Bisect completed
+- 2026-04-10T11:01:15.792994+00:00: Root cause analysis started
+- 2026-04-10T11:01:18.545059+00:00: Root cause analysis completed
+- 2026-04-10T11:01:18.571914+00:00: Learned pattern: large metric drops often trace back to hyperparameter shifts.
