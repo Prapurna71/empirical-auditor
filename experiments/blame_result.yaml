@@ -1,18 +1,18 @@
 root_cause:
-  summary: history_size increase
+  summary: history_size change
   category: Hyperparameter instability
-  fix: Revert history_size change or adjust threshold
+  fix: Revert history_size change or retrain with new history_size
   source: groq-llm
   confidence: 90
   reasoning_steps: &id001
-  - Divergence detected with accuracy drop and loss increase
-  - Dataset hash match, indicating data consistency
-  - Git diff shows history_size increase in bisect_result.yaml
-  - No code changes in model or training logic
+  - Divergence detected between experiment runs
+  - No dataset hash mismatch
+  - Code changes include modification of history_size in experiments/bisect_result.yaml
+  - History size change can affect model performance and stability
 llm_explanation:
-  root_cause: history_size increase
+  root_cause: history_size change
   category: Hyperparameter instability
-  fix: Revert history_size change or adjust threshold
+  fix: Revert history_size change or retrain with new history_size
   failure_type: Hyperparameter instability
   confidence: 90
   reasoning_steps: *id001
@@ -36,17 +36,17 @@ attribution:
 git_intelligence:
   diff:
     diff_snippet: "diff --git a/experiments/bisect_result.yaml b/experiments/bisect_result.yaml\n\
-      index fd2de52..b068221 100644\n--- a/experiments/bisect_result.yaml\n+++ b/experiments/bisect_result.yaml\n\
+      index b068221..5d2994c 100644\n--- a/experiments/bisect_result.yaml\n+++ b/experiments/bisect_result.yaml\n\
       @@ -2,7 +2,7 @@ divergence: true\n first_bad_commit: 0a56ebc\n commit_message:\
       \ 'Initial commit: Empirical Auditor gitagent repository'\n threshold: 0.05\n\
-      -history_size: 43\n+history_size: 53\n inspected:\n - commit: 0a56ebc\n   message:\
+      -history_size: 53\n+history_size: 61\n inspected:\n - commit: 0a56ebc\n   message:\
       \ 'Initial commit: Empirical Auditor gitagent repository'\ndiff --git a/memory/audit_log.md\
-      \ b/memory/audit_log.md\nindex 0fdbe5f..c93d8ca 100644\n--- a/memory/audit_log.md\n\
-      +++ b/memory/audit_log.md\n@@ -481,3 +481,5 @@ Simulated PR created: repro-failure-branch\
-      \ -> main\n - 2026-04-10T11:01:10.546596+00:00: Divergence detection started\n\
-      \ - 2026-04-10T11:01:10.910880+00:00: Divergence detected=True\n - 2026-04-10T11:01:11.331057+00:00:\
+      \ b/memory/audit_log.md\nindex 0d18900..b0aced2 100644\n--- a/memory/audit_log.md\n\
+      +++ b/memory/audit_log.md\n@@ -544,3 +544,5 @@ Simulated PR created: repro-failure-branch\
+      \ -> main\n - 2026-04-10T11:02:53.997193+00:00: Divergence detection started\n\
+      \ - 2026-04-10T11:02:54.261743+00:00: Divergence detected=True\n - 2026-04-10T11:02:54.588690+00:00:\
       \ Decision engine: severity=high actions=['bisect', 'blame', 'report', 'pr']\n\
-      +- 2026-04-10T11:01:11.534121+00:00: Bisect simulation started\n+- 2026-04-10T11:01:15.590251+00:00:\
+      +- 2026-04-10T11:02:54.750341+00:00: Bisect simulation started\n+- 2026-04-10T11:02:58.856490+00:00:\
       \ Bisect completed"
     affected_parameters: []
     changed_lines: *id002
