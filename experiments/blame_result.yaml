@@ -1,18 +1,24 @@
 root_cause:
-  summary: history_size change
+  summary: Change in experiment configuration altered evaluation consistency, leading
+    to unstable accuracy measurements (baseline 0.9889 -> current 0.8100).
   category: Hyperparameter instability
-  fix: Revert history_size change or retrain with new history_size
+  fix: Ensure a consistent experiment configuration for metric aggregation, or revert
+    the recent change affecting evaluation; then rerun baseline and current with identical
+    seed, split, and pipeline settings.
   source: groq-llm
   confidence: 90
   reasoning_steps: &id001
-  - Divergence detected between experiment runs
-  - No dataset hash mismatch
-  - Code changes include modification of history_size in experiments/bisect_result.yaml
-  - History size change can affect model performance and stability
+  - Divergence detected with significant metric differences
+  - Git diff shows history_size change in bisect_result.yaml
+  - No code changes in relevant files, only configuration change
+  - History size change likely affected model performance
 llm_explanation:
-  root_cause: history_size change
+  root_cause: Change in experiment configuration altered evaluation consistency, leading
+    to unstable accuracy measurements (baseline 0.9889 -> current 0.8100).
   category: Hyperparameter instability
-  fix: Revert history_size change or retrain with new history_size
+  fix: Ensure a consistent experiment configuration for metric aggregation, or revert
+    the recent change affecting evaluation; then rerun baseline and current with identical
+    seed, split, and pipeline settings.
   failure_type: Hyperparameter instability
   confidence: 90
   reasoning_steps: *id001
@@ -36,17 +42,17 @@ attribution:
 git_intelligence:
   diff:
     diff_snippet: "diff --git a/experiments/bisect_result.yaml b/experiments/bisect_result.yaml\n\
-      index b068221..5d2994c 100644\n--- a/experiments/bisect_result.yaml\n+++ b/experiments/bisect_result.yaml\n\
+      index 5d2994c..ab31eaf 100644\n--- a/experiments/bisect_result.yaml\n+++ b/experiments/bisect_result.yaml\n\
       @@ -2,7 +2,7 @@ divergence: true\n first_bad_commit: 0a56ebc\n commit_message:\
       \ 'Initial commit: Empirical Auditor gitagent repository'\n threshold: 0.05\n\
-      -history_size: 53\n+history_size: 61\n inspected:\n - commit: 0a56ebc\n   message:\
+      -history_size: 61\n+history_size: 69\n inspected:\n - commit: 0a56ebc\n   message:\
       \ 'Initial commit: Empirical Auditor gitagent repository'\ndiff --git a/memory/audit_log.md\
-      \ b/memory/audit_log.md\nindex 0d18900..b0aced2 100644\n--- a/memory/audit_log.md\n\
-      +++ b/memory/audit_log.md\n@@ -544,3 +544,5 @@ Simulated PR created: repro-failure-branch\
-      \ -> main\n - 2026-04-10T11:02:53.997193+00:00: Divergence detection started\n\
-      \ - 2026-04-10T11:02:54.261743+00:00: Divergence detected=True\n - 2026-04-10T11:02:54.588690+00:00:\
+      \ b/memory/audit_log.md\nindex cd1e2c7..c3f8c67 100644\n--- a/memory/audit_log.md\n\
+      +++ b/memory/audit_log.md\n@@ -607,3 +607,5 @@ Simulated PR created: repro-failure-branch\
+      \ -> main\n - 2026-04-10T11:22:32.358630+00:00: Divergence detection started\n\
+      \ - 2026-04-10T11:22:32.640512+00:00: Divergence detected=True\n - 2026-04-10T11:22:33.013891+00:00:\
       \ Decision engine: severity=high actions=['bisect', 'blame', 'report', 'pr']\n\
-      +- 2026-04-10T11:02:54.750341+00:00: Bisect simulation started\n+- 2026-04-10T11:02:58.856490+00:00:\
+      +- 2026-04-10T11:22:33.164842+00:00: Bisect simulation started\n+- 2026-04-10T11:22:36.740367+00:00:\
       \ Bisect completed"
     affected_parameters: []
     changed_lines: *id002
